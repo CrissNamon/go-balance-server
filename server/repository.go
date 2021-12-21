@@ -56,14 +56,14 @@ func NewAccountRepository(db *Database) *AccountRepository {
 func (rep *AccountRepository) executeTransaction(trxData TransactionData, oCode int, desc string) error {
 	_, err := rep.db.ExecuteInTransaction(func(tx *pgx.Tx) (interface{}, error) {
 		var curBal float64
-		err := (*tx).QueryRow(rep.db.ctx, SELECT_CURRENT_BALANCE, trxData.Id).Scan(&curBal)
+		err := (*tx).QueryRow(rep.db.Ctx, SELECT_CURRENT_BALANCE, trxData.Id).Scan(&curBal)
 		if err != nil {
 			return nil, err
 		}
 		if trxData.Sum < 0 && math.Abs(curBal) < math.Abs(trxData.Sum) {
 			return nil, &OperationError{STATUS_CODE_NOT_ENOUGH_MONEY}
 		}
-		_, err = (*tx).Exec(rep.db.ctx, CREATE_TRANSACTION, trxData.Id, trxData.Sum, oCode, desc)
+		_, err = (*tx).Exec(rep.db.Ctx, CREATE_TRANSACTION, trxData.Id, trxData.Sum, oCode, desc)
 		return nil, err
 	})
 	return err
@@ -80,7 +80,7 @@ func (rep *AccountRepository) executeOperation(trxData TransactionData, desc str
 func (rep *AccountRepository) getBalance(dt BalanceData) (float64, error) {
 	var curBal float64
 	_, err := rep.db.ExecuteInTransaction(func(tx *pgx.Tx) (interface{}, error) {
-		err := (*tx).QueryRow(rep.db.ctx, SELECT_CURRENT_BALANCE, dt.Id).Scan(&curBal)
+		err := (*tx).QueryRow(rep.db.Ctx, SELECT_CURRENT_BALANCE, dt.Id).Scan(&curBal)
 		return nil, err
 	})
 	return curBal, err
@@ -101,7 +101,7 @@ func (rep *AccountRepository) executeTransfer(tData TransferData) error {
 func (rep *AccountRepository) getTransactionsWithSort(trxData TransactionsListData, sort string) ([]map[string]interface{}, error) {
 	qry := GET_TRANSACTIONS_FROM_TO + " " + sort
 	trxs, err := rep.db.ExecuteInTransaction(func(tx *pgx.Tx) (interface{}, error) {
-		rows, err := (*tx).Query(rep.db.ctx, qry, trxData.Id, trxData.From, trxData.To)
+		rows, err := (*tx).Query(rep.db.Ctx, qry, trxData.Id, trxData.From, trxData.To)
 		if err != nil {
 			return nil, err
 		}

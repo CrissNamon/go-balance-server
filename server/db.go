@@ -11,7 +11,7 @@ import (
 
 type Database struct {
 	Conn *pgxpool.Pool
-	ctx  context.Context
+	Ctx  context.Context
 }
 
 func NewDatabase() *Database {
@@ -27,7 +27,7 @@ func (db *Database) Open() {
 		fmt.Println(err.Error())
 		panic(err)
 	}
-	db.ctx = context.Background()
+	db.Ctx = context.Background()
 	db.Conn = conn
 	fmt.Println("Connected to database")
 }
@@ -38,12 +38,12 @@ func (db *Database) Close() {
 }
 
 func (db *Database) ExecuteInTransaction(actn func(tx *pgx.Tx) (interface{}, error)) (interface{}, error) {
-	tx, err := db.Conn.BeginTx(db.ctx, pgx.TxOptions{})
+	tx, err := db.Conn.BeginTx(db.Ctx, pgx.TxOptions{})
 	defer func() {
 		if err != nil {
-			tx.Rollback(db.ctx)
+			tx.Rollback(db.Ctx)
 		} else {
-			tx.Commit(db.ctx)
+			tx.Commit(db.Ctx)
 		}
 	}()
 	if err != nil {

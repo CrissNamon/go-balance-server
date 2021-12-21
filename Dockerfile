@@ -9,4 +9,4 @@ RUN go mod download
 
 RUN go get github.com/githubnemo/CompileDaemon
 
-ENTRYPOINT go test test/*.go && CompileDaemon -command=./balance-server -directory=. -exclude-dir=.git -exclude=".#*" -polling=true
+ENTRYPOINT go test -v test/*.go && CompileDaemon -command=./balance-server -directory=. -exclude-dir=.git -exclude=".#*" -polling=true

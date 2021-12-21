@@ -2,14 +2,32 @@ package tests
 
 import (
 	"balance-server/server"
-	"fmt"
+	"context"
+	"os"
 	"testing"
+
+	"github.com/jackc/pgx/v4/pgxpool"
+)
+
+var (
+	db  = NewTestDatabase()
+	rep = server.NewAccountRepository(db)
 )
 
 func TestConnection(t *testing.T) {
-	db := server.NewDatabase()
 	if db.Conn == nil {
-		t.Error("Connection error")
+		t.Error("Database connection error")
 	}
-	fmt.Println("Database connected successfully")
+	t.Log("Connected to database: " + db.Conn.Config().ConnString())
+}
+
+func NewTestDatabase() *server.Database {
+	db := server.Database{}
+	conn, err := pgxpool.Connect(context.Background(), os.Getenv("PGX_TEST_DATABASE"))
+	if err != nil {
+		panic(err)
+	}
+	db.Ctx = context.Background()
+	db.Conn = conn
+	return &db
 }
