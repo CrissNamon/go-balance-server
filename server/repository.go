@@ -113,14 +113,18 @@ func (rep *AccountRepository) ExecuteTransfer(tData TransferData) error {
 
 func (rep *AccountRepository) GetTransactionsWithSort(trxData TransactionsListData, sort string) ([]map[string]interface{}, error) {
 	qry := GET_TRANSACTIONS_FROM_TO + " " + sort
-	trxs, err := rep.db.ExecuteInTransaction(func(tx *pgx.Tx) (interface{}, error) {
-		rows, err := (*tx).Query(rep.db.GetCtx(), qry, trxData.Id, trxData.From, trxData.To)
+	rows, err := rep.db.ExecuteInTransaction(func(tx *pgx.Tx) (interface{}, error) {
+		r, err := (*tx).Query(rep.db.GetCtx(), qry, trxData.Id, trxData.From, trxData.To)
 		if err != nil {
 			return nil, err
 		}
-		return transactionRowsToArray(&rows)
+		return r, nil
 	})
-	return trxs.([]map[string]interface{}), err
+	if err != nil {
+		return []map[string]interface{}{}, err
+	}
+	trxs, err := transactionRowsToArray((rows.(pgx.Rows)))
+	return trxs, err
 }
 
 func (rep *AccountRepository) GetTransactionsSortedByDate(trxData TransactionsListData) ([]map[string]interface{}, error) {
@@ -131,16 +135,16 @@ func (rep *AccountRepository) GetTransactionsSortedBySum(trxData TransactionsLis
 	return rep.GetTransactionsWithSort(trxData, SORT_TRANSACTIONS_SUM)
 }
 
-func transactionRowsToArray(rows *pgx.Rows) (trxs []map[string]interface{}, err error) {
+func transactionRowsToArray(rows pgx.Rows) (trxs []map[string]interface{}, err error) {
 	trxs = []map[string]interface{}{}
-	for (*rows).Next() {
+	for rows.Next() {
 		var (
 			sum       float64
 			operation int
 			date      int64
 			desc      string
 		)
-		err = (*rows).Scan(&sum, &operation, &date, &desc)
+		err = rows.Scan(&sum, &operation, &date, &desc)
 		trx := map[string]interface{}{
 			"sum":       sum,
 			"operation": operation,
