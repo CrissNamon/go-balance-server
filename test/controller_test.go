@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -102,13 +103,7 @@ func makeRequest(t *testing.T, path string, q *url.Values, res *TestTable) {
 }
 
 func httpTest(t *testing.T, get *TestTable, want *TestTable) {
-	if get.HttpCode != want.HttpCode {
-		t.Error("Expexted HTTP status: ", want.HttpCode, ", but got: ", get.HttpCode)
-	}
-	if get.Status != want.Status {
-		t.Error("Expexted status: ", want.Status, ", but got: ", get.Status)
-	}
-	if get.Message != want.Message {
-		t.Error("Expected data: ", want.Message, ", but got: ", get.Message)
-	}
+	assert.Equal(t, want.HttpCode, get.HttpCode, "Expexted HTTP status: ", want.HttpCode, ", but got: ", get.HttpCode)
+	assert.Equal(t, want.Status, get.Status, "Expexted status: ", want.Status, ", but got: ", get.Status)
+	assert.Equal(t, want.Message, get.Message, "Expexted data: ", want.Message, ", but got: ", get.Message)
 }

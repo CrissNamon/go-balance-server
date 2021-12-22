@@ -66,7 +66,7 @@ type AccountController struct {
 	accSrv *AccountService
 }
 
-func NewAccountController(accRep *AccountRepository) *AccountController {
+func NewAccountController(accRep AccountRepositoryI) *AccountController {
 	s := NewAccountService(accRep)
 	return &AccountController{s}
 }

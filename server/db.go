@@ -9,6 +9,13 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
+type DatabaseI interface {
+	Open()
+	Close()
+	ExecuteInTransaction(actn func(tx *pgx.Tx) (interface{}, error)) (interface{}, error)
+	GetCtx() context.Context
+}
+
 type Database struct {
 	Conn *pgxpool.Pool
 	Ctx  context.Context
@@ -50,4 +57,8 @@ func (db *Database) ExecuteInTransaction(actn func(tx *pgx.Tx) (interface{}, err
 		return nil, err
 	}
 	return actn(&tx)
+}
+
+func (db *Database) GetCtx() context.Context {
+	return db.Ctx
 }

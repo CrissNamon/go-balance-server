@@ -5,15 +5,15 @@ import (
 )
 
 type AccountService struct {
-	accRep *AccountRepository
+	accRep AccountRepositoryI
 }
 
-func NewAccountService(r *AccountRepository) *AccountService {
+func NewAccountService(r AccountRepositoryI) *AccountService {
 	return &AccountService{r}
 }
 
 func (s *AccountService) GetUserBalance(bData *BalanceData) (float64, error) {
-	curBal, err := s.accRep.getBalance(*bData)
+	curBal, err := s.accRep.GetBalance(*bData)
 	if err != nil {
 		return 0, err
 	}
@@ -35,11 +35,11 @@ func (s *AccountService) GetUserTransactions(trxData *TransactionsListData) ([]m
 	var err error
 	switch trxData.Sort {
 	case "date":
-		trxs, err = s.accRep.getTransactionsSortedByDate(*trxData)
+		trxs, err = s.accRep.GetTransactionsSortedByDate(*trxData)
 	case "sum":
-		trxs, err = s.accRep.getTransactionsSortedBySum(*trxData)
+		trxs, err = s.accRep.GetTransactionsSortedBySum(*trxData)
 	case "":
-		trxs, err = s.accRep.getTransactionsSortedByDate(*trxData)
+		trxs, err = s.accRep.GetTransactionsSortedByDate(*trxData)
 	default:
 		return nil, &OperationError{STATUS_CODE_WRONG_REQUEST}
 	}
@@ -63,9 +63,9 @@ func (s *AccountService) GetUserTransactions(trxData *TransactionsListData) ([]m
 }
 
 func (s *AccountService) TransferMoney(tData *TransferData) error {
-	return s.accRep.executeTransfer(*tData)
+	return s.accRep.ExecuteTransfer(*tData)
 }
 
 func (s *AccountService) DoTransaction(tData *TransactionData) error {
-	return s.accRep.executeOperation(*tData)
+	return s.accRep.ExecuteOperation(*tData)
 }
