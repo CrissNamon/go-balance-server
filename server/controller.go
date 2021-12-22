@@ -12,11 +12,9 @@ const (
 	URL_TRANSACTIONS string = "/transactions"
 	URL_TRANSFER     string = "/transfer"
 
-	STATUS_CODE_OK                  int = 0
-	STATUS_CODE_WRONG_REQUEST       int = 1
-	STATUS_CODE_NOT_ENOUGH_MONEY    int = 2
-	STATUS_CODE_INTERNAL_ERROR      int = 3
-	STATUS_CODE_WRONG_CURRENCY_CODE int = 4
+	STATUS_CODE_OK             int = 0
+	STATUS_CODE_WRONG_REQUEST  int = 1
+	STATUS_CODE_INTERNAL_ERROR int = 3
 
 	STATUS_NOT_ENOUGHT_MONEY     string = "Not enought money"
 	STATUS_TRANSACTION_COMPLETED string = "Transaction completed"
@@ -30,9 +28,24 @@ const (
 )
 
 var (
-	STATUS = map[int]string{
-		STATUS_CODE_NOT_ENOUGH_MONEY:    STATUS_NOT_ENOUGHT_MONEY,
-		STATUS_CODE_WRONG_CURRENCY_CODE: STATUS_WRONG_CURRENCY_CODE,
+	ACCOUNT_OPERATION_STATUS = map[int]string{
+		ERROR_NOT_ENOUGH_MONEY:            STATUS_NOT_ENOUGHT_MONEY,
+		ERROR_BALANCE_WRONG_CURRENCY_CODE: STATUS_WRONG_CURRENCY_CODE,
+		ERROR_TRANSACTIONS_WRONG_PAGE:     STATUS_WRONG_PAGE,
+		ERROR_TRANSACTIONS_WRONG_SORT:     STATUS_WRONG_SORT,
+	}
+
+	ACCOUNT_OPERATION_RESPONSE_CODE = map[int]int{
+		ERROR_TRANSACTIONS_WRONG_PAGE:     400,
+		ERROR_TRANSACTIONS_WRONG_SORT:     400,
+		ERROR_BALANCE_WRONG_CURRENCY_CODE: 400,
+	}
+)
+
+var (
+	AccountExpectedResult = ExpectedResult{
+		ACCOUNT_OPERATION_STATUS,
+		ACCOUNT_OPERATION_RESPONSE_CODE,
 	}
 )
 
@@ -80,7 +93,7 @@ func (acc *AccountController) Transaction(c *gin.Context) {
 	trxData := TransactionData{trxReq.Id, trxReq.Sum, trxReq.Desc}
 	err := acc.accSrv.DoTransaction(&trxData)
 	if err != nil {
-		r.Err(&err)
+		r.Err(&err, &AccountExpectedResult)
 		return
 	}
 	r.Ok()
@@ -96,7 +109,7 @@ func (acc *AccountController) Transfer(c *gin.Context) {
 	tData := TransferData{sReq.From, sReq.To, sReq.Sum}
 	err := acc.accSrv.TransferMoney(&tData)
 	if err != nil {
-		r.Err(&err)
+		r.Err(&err, &AccountExpectedResult)
 		return
 	}
 	r.Ok()
@@ -112,7 +125,7 @@ func (acc *AccountController) Balance(c *gin.Context) {
 	bData := BalanceData{blncReq.Id, blncReq.Cur}
 	curBal, err := acc.accSrv.GetUserBalance(&bData)
 	if err != nil {
-		r.Err(&err)
+		r.Err(&err, &AccountExpectedResult)
 		return
 	}
 	r.Give(curBal)
@@ -132,7 +145,7 @@ func (acc *AccountController) Transactions(c *gin.Context) {
 	trxData := TransactionsListData{trxsReq.Id, trxsReq.From, to, trxsReq.Page, trxsReq.Sort}
 	trxs, err := acc.accSrv.GetUserTransactions(&trxData)
 	if err != nil {
-		r.Err(&err)
+		r.Err(&err, &AccountExpectedResult)
 		return
 	}
 	r.Give(trxs)

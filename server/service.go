@@ -4,6 +4,13 @@ import (
 	"math"
 )
 
+const (
+	ERROR_BALANCE_WRONG_CURRENCY_CODE int = 101
+	ERROR_TRANSACTIONS_WRONG_SORT     int = 102
+	ERROR_TRANSACTIONS_WRONG_PAGE     int = 103
+	ERROR_NOT_ENOUGH_MONEY            int = 104
+)
+
 type AccountService struct {
 	accRep AccountRepositoryI
 }
@@ -15,14 +22,14 @@ func NewAccountService(r AccountRepositoryI) *AccountService {
 func (s *AccountService) GetUserBalance(bData *BalanceData) (float64, error) {
 	curBal, err := s.accRep.GetBalance(*bData)
 	if err != nil {
-		return 0, err
+		return 0, ConvertError(err)
 	}
 	if len(bData.Cur) != 3 {
-		return 0, &OperationError{STATUS_CODE_WRONG_CURRENCY_CODE}
+		return 0, &OperationError{ERROR_BALANCE_WRONG_CURRENCY_CODE}
 	}
 	if bData.Cur != BASE_CURRENCY {
 		if rate, err := GetCurrencyRate(BASE_CURRENCY, (*bData).Cur); err != nil {
-			return 0, err
+			return 0, ConvertError(err)
 		} else {
 			curBal *= rate
 		}
@@ -41,10 +48,10 @@ func (s *AccountService) GetUserTransactions(trxData *TransactionsListData) ([]m
 	case "":
 		trxs, err = s.accRep.GetTransactionsSortedByDate(*trxData)
 	default:
-		return nil, &OperationError{STATUS_CODE_WRONG_REQUEST}
+		return nil, &OperationError{ERROR_TRANSACTIONS_WRONG_SORT}
 	}
 	if err != nil {
-		return nil, err
+		return nil, ConvertError(err)
 	}
 	if trxData.Page == 0 {
 		return trxs, nil
@@ -52,7 +59,7 @@ func (s *AccountService) GetUserTransactions(trxData *TransactionsListData) ([]m
 	l := len(trxs)
 	pgs := int(math.Ceil(float64(l) / float64(PAGINATION_PAGE_SIZE)))
 	if trxData.Page > pgs {
-		return nil, &OperationError{STATUS_CODE_WRONG_REQUEST}
+		return nil, &OperationError{ERROR_TRANSACTIONS_WRONG_PAGE}
 	}
 	start := (trxData.Page - 1) * PAGINATION_PAGE_SIZE
 	end := trxData.Page * PAGINATION_PAGE_SIZE
@@ -63,9 +70,17 @@ func (s *AccountService) GetUserTransactions(trxData *TransactionsListData) ([]m
 }
 
 func (s *AccountService) TransferMoney(tData *TransferData) error {
-	return s.accRep.ExecuteTransfer(*tData)
+	err := s.accRep.ExecuteTransfer(*tData)
+	if err != nil {
+		return ConvertError(err)
+	}
+	return nil
 }
 
 func (s *AccountService) DoTransaction(tData *TransactionData) error {
-	return s.accRep.ExecuteOperation(*tData)
+	err := s.accRep.ExecuteOperation(*tData)
+	if err != nil {
+		return ConvertError(err)
+	}
+	return nil
 }

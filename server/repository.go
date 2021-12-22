@@ -74,7 +74,7 @@ func (rep *AccountRepository) ExecuteTransaction(trxData TransactionData, oCode 
 			return nil, err
 		}
 		if trxData.Sum < 0 && math.Abs(curBal) < math.Abs(trxData.Sum) {
-			return nil, &OperationError{STATUS_CODE_NOT_ENOUGH_MONEY}
+			return nil, &OperationError{ERROR_NOT_ENOUGH_MONEY}
 		}
 		_, err = (*tx).Exec(rep.db.GetCtx(), CREATE_TRANSACTION, trxData.Id, trxData.Sum, oCode, trxData.Desc)
 		return nil, err

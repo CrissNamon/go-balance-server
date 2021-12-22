@@ -41,10 +41,10 @@ func TestMain(m *testing.M) {
 }
 
 func TestBalanceNotExistingUser(t *testing.T) {
-	exp := TestTable{server.STATUS_CODE_WRONG_REQUEST, "Wrong request data: id must be positive number", 400}
+	exp := TestTable{server.STATUS_CODE_OK, float64(0), 200}
 	res := TestTable{}
 	q := make(url.Values)
-	q.Add("id", "wrong")
+	q.Add("id", "123124")
 	makeRequest(t, server.URL_BALANCE, &q, &res)
 	httpTest(t, &res, &exp)
 }
@@ -62,7 +62,7 @@ func TestBalanceWrongUser(t *testing.T) {
 }
 
 func TestNewTransactionIncome(t *testing.T) {
-	exp := TestTable{0, server.STATUS_TRANSACTION_COMPLETED, 200}
+	exp := TestTable{server.STATUS_CODE_OK, server.STATUS_TRANSACTION_COMPLETED, 200}
 	res := TestTable{}
 	q := make(url.Values)
 	q.Add("id", "1")
@@ -72,7 +72,7 @@ func TestNewTransactionIncome(t *testing.T) {
 }
 
 func TestNewTransactionOutcomeNoMoney(t *testing.T) {
-	exp := TestTable{server.STATUS_CODE_NOT_ENOUGH_MONEY, server.STATUS_NOT_ENOUGHT_MONEY, 200}
+	exp := TestTable{server.ERROR_NOT_ENOUGH_MONEY, server.ACCOUNT_OPERATION_STATUS[server.ERROR_NOT_ENOUGH_MONEY], 200}
 	res := TestTable{}
 	q := make(url.Values)
 	q.Add("id", "1")

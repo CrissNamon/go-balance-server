@@ -2,7 +2,6 @@ package server
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 )
@@ -29,15 +28,15 @@ func GetCurrencyRate(base string, to string) (float64, error) {
 	var result map[string]interface{}
 	err = json.NewDecoder(resp.Body).Decode(&result)
 	if err != nil {
-		return 0, nil
+		return 0, err
 	}
 	rates, ok := result["rates"].(map[string]interface{})
 	if !ok {
-		return 0, errors.New("Error occured during rate request")
+		return 0, &OperationError{ERROR_INTERNAL}
 	}
 	rate, ok := rates[to].(float64)
 	if !ok {
-		return 0, &OperationError{STATUS_CODE_WRONG_CURRENCY_CODE}
+		return 0, &OperationError{ERROR_BALANCE_WRONG_CURRENCY_CODE}
 	}
 	return rate, nil
 }

@@ -6,6 +6,38 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type ExpectedResultI interface {
+	GetStatus(code int) string
+	GetHttpCode(code int) int
+}
+
+type ExpectedResult struct {
+	Statuses  map[int]string
+	HttpCodes map[int]int
+}
+
+func (er *ExpectedResult) GetStatus(code int) string {
+	c, ok := er.Statuses[code]
+	if !ok {
+		if code == ERROR_INTERNAL {
+			return STATUS_INTERNAL_ERROR
+		}
+		return ""
+	}
+	return c
+}
+
+func (er *ExpectedResult) GetHttpCode(code int) int {
+	c, ok := er.HttpCodes[code]
+	if !ok {
+		if code == ERROR_INTERNAL {
+			return 500
+		}
+		return 200
+	}
+	return c
+}
+
 type Result struct {
 	ctx *gin.Context
 
@@ -36,12 +68,12 @@ func (r *Result) Ok() {
 	r.ctx.JSON(200, r)
 }
 
-func (r *Result) Err(err *error) {
+func (r *Result) Err(err *error, er ExpectedResultI) {
 	switch e := (*err).(type) {
 	case *OperationError:
-		r.SetStatus(e.GetCode())
-		r.SetMessage(e.Error())
-		r.Ok()
+		r.SetStatus(e.Code)
+		r.SetMessage(er.GetStatus(e.Code))
+		r.Response(er.GetHttpCode(e.Code))
 	default:
 		r.SetStatus(STATUS_CODE_INTERNAL_ERROR)
 		r.SetMessage(STATUS_INTERNAL_ERROR)

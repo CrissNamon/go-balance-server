@@ -18,7 +18,7 @@ func TestGetBalanceWrongCurrencyCode(t *testing.T) {
 	assert.NotNil(t, err, "Expected error, but hasn't been thrown")
 	switch e := (err).(type) {
 	case *server.OperationError:
-		assert.Equal(t, server.STATUS_CODE_WRONG_CURRENCY_CODE, e.Code, "Expected code: ", server.STATUS_CODE_WRONG_CURRENCY_CODE, ", but got: ", e.Code)
+		assert.Equal(t, server.ERROR_BALANCE_WRONG_CURRENCY_CODE, e.Code, "Expected code: ", server.ACCOUNT_OPERATION_STATUS[server.ERROR_BALANCE_WRONG_CURRENCY_CODE], ", but got: ", e.Code)
 	default:
 		t.Error("Expected OperationError, but got: ", e)
 	}
