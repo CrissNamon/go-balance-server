@@ -24,31 +24,6 @@ const (
 	OPERATION_TRANSFER_DESC string = "Transfer to user %d from user %d"
 )
 
-type TransactionData struct {
-	Id   int
-	Sum  float64
-	Desc string
-}
-
-type BalanceData struct {
-	Id  int
-	Cur string
-}
-
-type TransferData struct {
-	From int
-	To   int
-	Sum  float64
-}
-
-type TransactionsListData struct {
-	Id   int
-	From int64
-	To   int64
-	Page int
-	Sort string
-}
-
 type AccountRepositoryI interface {
 	ExecuteTransaction(trxData TransactionData, oCode int) error
 	ExecuteOperation(trxData TransactionData) error

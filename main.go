@@ -17,8 +17,8 @@ func main() {
 	defer db.Close()
 
 	router.NoRoute(server.NoRoute)
-	router.GET(server.URL_TRANSACTION, acc.Transaction)
-	router.GET(server.URL_TRANSFER, acc.Transfer)
+	router.POST(server.URL_TRANSACTION, acc.Transaction)
+	router.POST(server.URL_TRANSFER, acc.Transfer)
 	router.GET(server.URL_BALANCE, acc.Balance)
 	router.GET(server.URL_TRANSACTIONS, acc.Transactions)
 	router.Run()

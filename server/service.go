@@ -11,6 +11,31 @@ const (
 	ERROR_NOT_ENOUGH_MONEY            int = 104
 )
 
+type TransactionData struct {
+	Id   int
+	Sum  float64
+	Desc string
+}
+
+type BalanceData struct {
+	Id  int
+	Cur string
+}
+
+type TransferData struct {
+	From int
+	To   int
+	Sum  float64
+}
+
+type TransactionsListData struct {
+	Id   int
+	From int64
+	To   int64
+	Page int
+	Sort string
+}
+
 type AccountService struct {
 	accRep AccountRepositoryI
 }

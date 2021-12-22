@@ -50,28 +50,28 @@ var (
 )
 
 type TransactionRequest struct {
-	Id   int     `form:"id" binding:"required,numeric,gte=0"`
-	Sum  float64 `form:"sum" binding:"required,numeric"`
-	Desc string  `form:"desc"`
+	Id   int     `form:"id" json:"id" binding:"required,numeric,gte=0"`
+	Sum  float64 `form:"sum" json:"sum" binding:"required,numeric"`
+	Desc string  `form:"desc" json:"desc"`
 }
 
 type SendRequest struct {
-	From int     `form:"from" binding:"required,numeric,gte=0"`
-	Sum  float64 `form:"sum" binding:"required,numeric,gt=0"`
-	To   int     `form:"to" binding:"required,numeric,gte=0"`
+	From int     `form:"id" json:"id" binding:"required,numeric,gte=0"`
+	Sum  float64 `form:"sum" json:"sum" binding:"required,numeric,gt=0"`
+	To   int     `form:"to" json:"to" binding:"required,numeric,gte=0"`
 }
 
 type BalanceRequest struct {
-	Id  int    `form:"id" binding:"required,numeric,gte=0"`
-	Cur string `form:"currency"`
+	Id  int    `form:"id" json:"id" binding:"required,numeric,gte=0"`
+	Cur string `form:"currency" json:"currency"`
 }
 
 type TransactionsRequest struct {
-	Id   int    `form:"id" binding:"required,numeric,gte=0`
-	From int64  `form:"from"`
-	To   int64  `form:"to"`
-	Sort string `form:"sort"`
-	Page int    `form:"page" binding:"gte=0"`
+	Id   int    `form:"id" json:"id" binding:"required,numeric,gte=0`
+	From int64  `form:"from" json:"from"`
+	To   int64  `form:"to" json:"to"`
+	Sort string `form:"sort" json:"sort"`
+	Page int    `form:"page" json:"page" binding:"gte=0"`
 }
 
 type AccountController struct {
@@ -86,7 +86,7 @@ func NewAccountController(accRep AccountRepositoryI) *AccountController {
 func (acc *AccountController) Transaction(c *gin.Context) {
 	var trxReq TransactionRequest
 	r := Result{c, STATUS_CODE_OK, STATUS_TRANSACTION_COMPLETED}
-	if err := c.ShouldBind(&trxReq); err != nil {
+	if err := c.ShouldBindJSON(&trxReq); err != nil {
 		r.BadRequest("id must be positive and sum must be greater than zero.")
 		return
 	}
@@ -102,7 +102,7 @@ func (acc *AccountController) Transaction(c *gin.Context) {
 func (acc *AccountController) Transfer(c *gin.Context) {
 	var sReq SendRequest
 	r := Result{c, STATUS_CODE_OK, STATUS_TRANSFER_COMPLETED}
-	if err := c.ShouldBind(&sReq); err != nil {
+	if err := c.ShouldBindJSON(&sReq); err != nil {
 		r.BadRequest("ids must be positive and sum must be greater than zero.")
 		return
 	}
@@ -118,8 +118,8 @@ func (acc *AccountController) Transfer(c *gin.Context) {
 func (acc *AccountController) Balance(c *gin.Context) {
 	r := Result{c, STATUS_CODE_OK, 0}
 	blncReq := BalanceRequest{0, BASE_CURRENCY}
-	if err := c.ShouldBind(&blncReq); err != nil {
-		r.BadRequest("id must be positive number")
+	if err := c.ShouldBindJSON(&blncReq); err != nil {
+		r.BadRequest(err.Error())
 		return
 	}
 	bData := BalanceData{blncReq.Id, blncReq.Cur}
@@ -134,7 +134,7 @@ func (acc *AccountController) Balance(c *gin.Context) {
 func (acc *AccountController) Transactions(c *gin.Context) {
 	r := Result{c, STATUS_CODE_OK, map[string]interface{}{}}
 	var trxsReq TransactionsRequest
-	if err := c.ShouldBind(&trxsReq); err != nil {
+	if err := c.ShouldBindJSON(&trxsReq); err != nil {
 		r.BadRequest("ids must be positive")
 		return
 	}
