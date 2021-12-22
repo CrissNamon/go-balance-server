@@ -28,5 +28,5 @@ func (opErr *OperationError) GetCode() int {
 
 func NoRoute(c *gin.Context) {
 	r := Result{c, 0, "There is nothing here"}
-	r.response(404)
+	r.Response(404)
 }

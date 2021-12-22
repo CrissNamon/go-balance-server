@@ -1,6 +1,8 @@
 package server
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -25,28 +27,34 @@ func (r *Result) SetMessage(message interface{}) *Result {
 	return r
 }
 
-func (r *Result) give(message interface{}) {
+func (r *Result) Give(message interface{}) {
 	r.Message = message
-	r.ok()
+	r.Ok()
 }
 
-func (r *Result) ok() {
+func (r *Result) Ok() {
 	r.ctx.JSON(200, r)
 }
 
-func (r *Result) err(err *error) {
+func (r *Result) Err(err *error) {
 	switch e := (*err).(type) {
 	case *OperationError:
 		r.SetStatus(e.GetCode())
 		r.SetMessage(e.Error())
-		r.ok()
+		r.Ok()
 	default:
 		r.SetStatus(STATUS_CODE_INTERNAL_ERROR)
 		r.SetMessage(STATUS_INTERNAL_ERROR)
-		r.response(500)
+		r.Response(500)
 	}
 }
 
-func (r *Result) response(code int) {
+func (r *Result) Response(code int) {
 	r.ctx.JSON(code, r)
+}
+
+func (r *Result) BadRequest(msg string) {
+	r.SetStatus(STATUS_CODE_WRONG_REQUEST)
+	r.SetMessage(fmt.Sprintf(BAD_REQUEST_BINDING, msg))
+	r.Response(400)
 }

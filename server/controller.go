@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -75,63 +74,55 @@ func (acc *AccountController) Transaction(c *gin.Context) {
 	var trxReq TransactionRequest
 	r := Result{c, STATUS_CODE_OK, STATUS_TRANSACTION_COMPLETED}
 	if err := c.ShouldBind(&trxReq); err != nil {
-		r.SetStatus(STATUS_CODE_WRONG_REQUEST)
-		r.SetMessage(fmt.Sprintf(BAD_REQUEST_BINDING, "id must be positive and sum must be greater than zero."))
-		r.response(400)
+		r.BadRequest("id must be positive and sum must be greater than zero.")
 		return
 	}
 	trxData := TransactionData{trxReq.Id, trxReq.Sum, trxReq.Desc}
 	err := acc.accSrv.DoTransaction(&trxData)
 	if err != nil {
-		r.err(&err)
+		r.Err(&err)
 		return
 	}
-	r.ok()
+	r.Ok()
 }
 
 func (acc *AccountController) Transfer(c *gin.Context) {
 	var sReq SendRequest
 	r := Result{c, STATUS_CODE_OK, STATUS_TRANSFER_COMPLETED}
 	if err := c.ShouldBind(&sReq); err != nil {
-		r.SetStatus(STATUS_CODE_WRONG_REQUEST)
-		r.SetMessage(fmt.Sprintf(BAD_REQUEST_BINDING, "ids must be positive and sum must be greater than zero."))
-		r.response(400)
+		r.BadRequest("ids must be positive and sum must be greater than zero.")
 		return
 	}
 	tData := TransferData{sReq.From, sReq.To, sReq.Sum}
 	err := acc.accSrv.TransferMoney(&tData)
 	if err != nil {
-		r.err(&err)
+		r.Err(&err)
 		return
 	}
-	r.ok()
+	r.Ok()
 }
 
 func (acc *AccountController) Balance(c *gin.Context) {
 	r := Result{c, STATUS_CODE_OK, 0}
 	blncReq := BalanceRequest{0, BASE_CURRENCY}
 	if err := c.ShouldBind(&blncReq); err != nil {
-		r.SetStatus(STATUS_CODE_WRONG_REQUEST)
-		r.SetMessage(fmt.Sprintf(BAD_REQUEST_BINDING, "id must be positive"))
-		r.response(400)
+		r.BadRequest("id must be positive number")
 		return
 	}
 	bData := BalanceData{blncReq.Id, blncReq.Cur}
 	curBal, err := acc.accSrv.GetUserBalance(&bData)
 	if err != nil {
-		r.err(&err)
+		r.Err(&err)
 		return
 	}
-	r.give(curBal)
+	r.Give(curBal)
 }
 
 func (acc *AccountController) Transactions(c *gin.Context) {
 	r := Result{c, STATUS_CODE_OK, map[string]interface{}{}}
 	var trxsReq TransactionsRequest
 	if err := c.ShouldBind(&trxsReq); err != nil {
-		r.SetStatus(STATUS_CODE_WRONG_REQUEST)
-		r.SetMessage(fmt.Sprintf(BAD_REQUEST_BINDING, "ids must be positive"))
-		r.response(400)
+		r.BadRequest("ids must be positive")
 		return
 	}
 	to := trxsReq.To
@@ -141,8 +132,8 @@ func (acc *AccountController) Transactions(c *gin.Context) {
 	trxData := TransactionsListData{trxsReq.Id, trxsReq.From, to, trxsReq.Page, trxsReq.Sort}
 	trxs, err := acc.accSrv.GetUserTransactions(&trxData)
 	if err != nil {
-		r.err(&err)
+		r.Err(&err)
 		return
 	}
-	r.give(trxs)
+	r.Give(trxs)
 }

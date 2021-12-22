@@ -41,7 +41,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestBalanceNotExistingUser(t *testing.T) {
-	exp := TestTable{server.STATUS_CODE_WRONG_REQUEST, "Wrong request data: id must be positive", 400}
+	exp := TestTable{server.STATUS_CODE_WRONG_REQUEST, "Wrong request data: id must be positive number", 400}
 	res := TestTable{}
 	q := make(url.Values)
 	q.Add("id", "wrong")
@@ -50,7 +50,7 @@ func TestBalanceNotExistingUser(t *testing.T) {
 }
 
 func TestBalanceWrongUser(t *testing.T) {
-	exp := TestTable{server.STATUS_CODE_WRONG_REQUEST, "Wrong request data: id must be positive", 400}
+	exp := TestTable{server.STATUS_CODE_WRONG_REQUEST, "Wrong request data: id must be positive number", 400}
 	res := TestTable{}
 	q := make(url.Values)
 	q.Add("id", "wrong")
