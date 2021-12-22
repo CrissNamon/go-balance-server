@@ -25,12 +25,14 @@ const (
 )
 
 type TransactionData struct {
-	Id  int
-	Sum float64
+	Id   int
+	Sum  float64
+	Desc string
 }
 
 type BalanceData struct {
-	Id int
+	Id  int
+	Cur string
 }
 
 type TransferData struct {
@@ -43,6 +45,8 @@ type TransactionsListData struct {
 	Id   int
 	From int64
 	To   int64
+	Page int
+	Sort string
 }
 
 type AccountRepository struct {
@@ -53,7 +57,7 @@ func NewAccountRepository(db *Database) *AccountRepository {
 	return &AccountRepository{db}
 }
 
-func (rep *AccountRepository) executeTransaction(trxData TransactionData, oCode int, desc string) error {
+func (rep *AccountRepository) executeTransaction(trxData TransactionData, oCode int) error {
 	_, err := rep.db.ExecuteInTransaction(func(tx *pgx.Tx) (interface{}, error) {
 		var curBal float64
 		err := (*tx).QueryRow(rep.db.Ctx, SELECT_CURRENT_BALANCE, trxData.Id).Scan(&curBal)
@@ -63,17 +67,17 @@ func (rep *AccountRepository) executeTransaction(trxData TransactionData, oCode 
 		if trxData.Sum < 0 && math.Abs(curBal) < math.Abs(trxData.Sum) {
 			return nil, &OperationError{STATUS_CODE_NOT_ENOUGH_MONEY}
 		}
-		_, err = (*tx).Exec(rep.db.Ctx, CREATE_TRANSACTION, trxData.Id, trxData.Sum, oCode, desc)
+		_, err = (*tx).Exec(rep.db.Ctx, CREATE_TRANSACTION, trxData.Id, trxData.Sum, oCode, trxData.Desc)
 		return nil, err
 	})
 	return err
 }
 
-func (rep *AccountRepository) executeOperation(trxData TransactionData, desc string) error {
+func (rep *AccountRepository) executeOperation(trxData TransactionData) error {
 	if trxData.Sum > 0 {
-		return rep.executeTransaction(trxData, OPERATION_INCOME_CODE, desc)
+		return rep.executeTransaction(trxData, OPERATION_INCOME_CODE)
 	} else {
-		return rep.executeTransaction(trxData, OPERATION_OUTCOME_CODE, desc)
+		return rep.executeTransaction(trxData, OPERATION_OUTCOME_CODE)
 	}
 }
 
@@ -87,14 +91,14 @@ func (rep *AccountRepository) getBalance(dt BalanceData) (float64, error) {
 }
 
 func (rep *AccountRepository) executeTransfer(tData TransferData) error {
-	trxData := TransactionData{tData.From, -tData.Sum}
 	desc := fmt.Sprintf(OPERATION_TRANSFER_DESC, tData.To, tData.From)
-	err := rep.executeTransaction(trxData, OPERATION_TRANSFER_CODE, desc)
+	trxData := TransactionData{tData.From, -tData.Sum, desc}
+	err := rep.executeTransaction(trxData, OPERATION_TRANSFER_CODE)
 	if err != nil {
 		return err
 	}
-	trxData = TransactionData{tData.To, tData.Sum}
-	err = rep.executeTransaction(trxData, OPERATION_TRANSFER_CODE, desc)
+	trxData = TransactionData{tData.To, tData.Sum, desc}
+	err = rep.executeTransaction(trxData, OPERATION_TRANSFER_CODE)
 	return err
 }
 

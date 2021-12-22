@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"math"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -59,11 +58,12 @@ type TransactionsRequest struct {
 }
 
 type AccountController struct {
-	accRep *AccountRepository
+	accSrv *AccountService
 }
 
 func NewAccountController(accRep *AccountRepository) *AccountController {
-	return &AccountController{accRep}
+	s := NewAccountService(accRep)
+	return &AccountController{s}
 }
 
 func (acc *AccountController) Transaction(c *gin.Context) {
@@ -75,8 +75,8 @@ func (acc *AccountController) Transaction(c *gin.Context) {
 		r.response(400)
 		return
 	}
-	trxData := TransactionData{trxReq.Id, trxReq.Sum}
-	err := acc.accRep.executeOperation(trxData, trxReq.Desc)
+	trxData := TransactionData{trxReq.Id, trxReq.Sum, trxReq.Desc}
+	err := acc.accSrv.DoTransaction(&trxData)
 	if err != nil {
 		r.err(&err)
 		return
@@ -94,7 +94,7 @@ func (acc *AccountController) Transfer(c *gin.Context) {
 		return
 	}
 	tData := TransferData{sReq.From, sReq.To, sReq.Sum}
-	err := acc.accRep.executeTransfer(tData)
+	err := acc.accSrv.TransferMoney(&tData)
 	if err != nil {
 		r.err(&err)
 		return
@@ -104,26 +104,18 @@ func (acc *AccountController) Transfer(c *gin.Context) {
 
 func (acc *AccountController) Balance(c *gin.Context) {
 	r := Result{c, STATUS_CODE_OK, 0}
-	var blncReq BalanceRequest
+	blncReq := BalanceRequest{0, BASE_CURRENCY}
 	if err := c.ShouldBind(&blncReq); err != nil {
 		r.SetStatus(STATUS_CODE_WRONG_REQUEST)
 		r.SetMessage(fmt.Sprintf(BAD_REQUEST_BINDING, "id must be positive"))
 		r.response(400)
 		return
 	}
-	bData := BalanceData{blncReq.Id}
-	curBal, err := acc.accRep.getBalance(bData)
+	bData := BalanceData{blncReq.Id, blncReq.Cur}
+	curBal, err := acc.accSrv.GetUserBalance(&bData)
 	if err != nil {
 		r.err(&err)
 		return
-	}
-	if len(blncReq.Cur) > 0 {
-		if rate, err := GetCurrencyRate(BASE_CURRENCY, blncReq.Cur); err != nil {
-			r.err(&err)
-			return
-		} else {
-			curBal *= rate
-		}
 	}
 	r.give(curBal)
 }
@@ -141,42 +133,11 @@ func (acc *AccountController) Transactions(c *gin.Context) {
 	if to == 0 {
 		to = time.Now().Unix()
 	}
-	trxData := TransactionsListData{trxsReq.Id, trxsReq.From, to}
-	var trxs []map[string]interface{}
-	var err error
-	switch trxsReq.Sort {
-	case "date":
-		trxs, err = acc.accRep.getTransactionsSortedByDate(trxData)
-	case "sum":
-		trxs, err = acc.accRep.getTransactionsSortedBySum(trxData)
-	case "":
-		trxs, err = acc.accRep.getTransactionsSortedByDate(trxData)
-	default:
-		r.SetStatus(STATUS_CODE_WRONG_REQUEST)
-		r.SetMessage(STATUS_WRONG_SORT)
-		r.response(400)
-		return
-	}
+	trxData := TransactionsListData{trxsReq.Id, trxsReq.From, to, trxsReq.Page, trxsReq.Sort}
+	trxs, err := acc.accSrv.GetUserTransactions(&trxData)
 	if err != nil {
 		r.err(&err)
 		return
 	}
-	if trxsReq.Page == 0 {
-		r.give(trxs)
-		return
-	}
-	l := len(trxs)
-	pgs := int(math.Ceil(float64(l) / float64(PAGINATION_PAGE_SIZE)))
-	if trxsReq.Page > pgs {
-		r.SetStatus(STATUS_CODE_WRONG_REQUEST)
-		r.SetMessage(STATUS_WRONG_PAGE)
-		r.response(400)
-		return
-	}
-	start := (trxsReq.Page - 1) * PAGINATION_PAGE_SIZE
-	end := trxsReq.Page * PAGINATION_PAGE_SIZE
-	if end > l {
-		end = l
-	}
-	r.give(trxs[start:end])
+	r.give(trxs)
 }
