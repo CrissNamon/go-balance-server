@@ -24,52 +24,70 @@ type TestTable struct {
 }
 
 var (
-	rec  = httptest.NewRecorder()
-	c, _ = gin.CreateTestContext(rec)
-	acc  = server.NewAccountController(testRep)
+	rec    = httptest.NewRecorder()
+	c, _   = gin.CreateTestContext(rec)
+	acc    = server.NewAccountController(testRep)
+	router = gin.New()
 )
 
 func TestMain(m *testing.M) {
+	router.GET(server.URL_TRANSACTION, acc.Transaction)
+	router.GET(server.URL_TRANSFER, acc.Transfer)
+	router.GET(server.URL_BALANCE, acc.Balance)
+	router.GET(server.URL_TRANSACTIONS, acc.Transactions)
 	testDb.Conn.Query(testDb.Ctx, DB_INIT_QUERY)
 	m.Run()
 }
 
 func TestBalanceNotExistingUser(t *testing.T) {
-	exp := TestTable{0, float64(0), 200}
-	q := make(url.Values)
-	q.Add("id", "1")
+	exp := TestTable{server.STATUS_CODE_WRONG_REQUEST, "Wrong request data: id must be positive", 400}
 	res := TestTable{}
-	makeRequest(t, &q, acc.Balance, &res)
+	q := make(url.Values)
+	q.Add("id", "wrong")
+	makeRequest(t, server.URL_BALANCE, &q, &res)
+	httpTest(t, &res, &exp)
+}
+
+func TestBalanceWrongUser(t *testing.T) {
+	exp := TestTable{server.STATUS_CODE_WRONG_REQUEST, "Wrong request data: id must be positive", 400}
+	res := TestTable{}
+	q := make(url.Values)
+	q.Add("id", "wrong")
+	makeRequest(t, server.URL_BALANCE, &q, &res)
+	httpTest(t, &res, &exp)
+	q.Set("id", "-199")
+	makeRequest(t, server.URL_BALANCE, &q, &res)
 	httpTest(t, &res, &exp)
 }
 
 func TestNewTransactionIncome(t *testing.T) {
 	exp := TestTable{0, server.STATUS_TRANSACTION_COMPLETED, 200}
+	res := TestTable{}
 	q := make(url.Values)
 	q.Add("id", "1")
 	q.Add("sum", "100")
-	res := TestTable{}
-	makeRequest(t, &q, acc.Transaction, &res)
+	makeRequest(t, server.URL_TRANSACTION, &q, &res)
 	httpTest(t, &res, &exp)
 }
 
 func TestNewTransactionOutcomeNoMoney(t *testing.T) {
 	exp := TestTable{server.STATUS_CODE_NOT_ENOUGH_MONEY, server.STATUS_NOT_ENOUGHT_MONEY, 200}
+	res := TestTable{}
 	q := make(url.Values)
 	q.Add("id", "1")
 	q.Add("sum", "-1000")
-	res := TestTable{}
-	makeRequest(t, &q, acc.Transaction, &res)
+	makeRequest(t, server.URL_TRANSACTION, &q, &res)
 	httpTest(t, &res, &exp)
 }
 
-func makeRequest(t *testing.T, q *url.Values, m func(c *gin.Context), res *TestTable) {
-	defer rec.Flush()
-
-	req := &http.Request{URL: &url.URL{}}
+func makeRequest(t *testing.T, path string, q *url.Values, res *TestTable) {
+	defer func() {
+		rec = httptest.NewRecorder()
+	}()
+	req, _ := http.NewRequest("GET", path, nil)
 	req.URL.RawQuery = q.Encode()
-	c.Request = req
-	m(c)
+	router.ServeHTTP(rec, req)
+
 	var result map[string]interface{}
 	err := json.NewDecoder(rec.Body).Decode(&result)
 
@@ -77,8 +95,7 @@ func makeRequest(t *testing.T, q *url.Values, m func(c *gin.Context), res *TestT
 		t.Error(err)
 		return
 	}
-	t.Log(result)
-	res.HttpCode = rec.Result().StatusCode
+	res.HttpCode = rec.Code
 	res.Status = int(result["status"].(float64))
 	res.Message = result["data"]
 	return

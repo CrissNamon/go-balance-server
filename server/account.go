@@ -8,6 +8,11 @@ import (
 )
 
 const (
+	URL_BALANCE      string = "/balance"
+	URL_TRANSACTION  string = "/transaction"
+	URL_TRANSACTIONS string = "/transactions"
+	URL_TRANSFER     string = "/transfer"
+
 	STATUS_CODE_OK                  int = 0
 	STATUS_CODE_WRONG_REQUEST       int = 1
 	STATUS_CODE_NOT_ENOUGH_MONEY    int = 2
