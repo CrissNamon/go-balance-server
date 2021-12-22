@@ -87,7 +87,7 @@ func (acc *AccountController) Transaction(c *gin.Context) {
 	var trxReq TransactionRequest
 	r := Result{c, STATUS_CODE_OK, STATUS_TRANSACTION_COMPLETED}
 	if err := c.ShouldBindJSON(&trxReq); err != nil {
-		r.BadRequest("id must be positive and sum must be greater than zero.")
+		r.BadRequest("user id must be positive number and sum must be greater than zero")
 		return
 	}
 	trxData := TransactionData{trxReq.Id, trxReq.Sum, trxReq.Desc}
@@ -103,7 +103,11 @@ func (acc *AccountController) Transfer(c *gin.Context) {
 	var sReq SendRequest
 	r := Result{c, STATUS_CODE_OK, STATUS_TRANSFER_COMPLETED}
 	if err := c.ShouldBindJSON(&sReq); err != nil {
-		r.BadRequest("ids must be positive and sum must be greater than zero.")
+		r.BadRequest("user ids must be positive numbers and sum must be greater than zero")
+		return
+	}
+	if sReq.From == sReq.To {
+		r.BadRequest("user ids must be different")
 		return
 	}
 	tData := TransferData{sReq.From, sReq.To, sReq.Sum}
@@ -135,12 +139,16 @@ func (acc *AccountController) Transactions(c *gin.Context) {
 	r := Result{c, STATUS_CODE_OK, map[string]interface{}{}}
 	var trxsReq TransactionsRequest
 	if err := c.ShouldBindJSON(&trxsReq); err != nil {
-		r.BadRequest("ids must be positive")
+		r.BadRequest("user id must be positive")
 		return
 	}
 	to := trxsReq.To
 	if to == 0 {
 		to = time.Now().Unix()
+	}
+	if trxsReq.From > to {
+		r.BadRequest("start date must be less than end date")
+		return
 	}
 	trxData := TransactionsListData{trxsReq.Id, trxsReq.From, to, trxsReq.Page, trxsReq.Sort}
 	trxs, err := acc.accSrv.GetUserTransactions(&trxData)
