@@ -38,7 +38,7 @@ func NewTransactionViewsRefresher(db DatabaseI) *TransactionViewsRefresher {
 }
 
 func (r *TransactionViewsRefresher) Run() {
-	fmt.Println("Updating DB views: balance cache and transactions sorted by sums")
+	fmt.Println("Updating DB transaction_sum_order view")
 	r.db.ExecuteInTransaction(func(tx *pgx.Tx) (interface{}, error) {
 		_, err := (*tx).Exec(r.db.GetCtx(), UPDATE_ORDERED_SUM_VIEW)
 		if err != nil {
