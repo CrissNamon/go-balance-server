@@ -11,6 +11,7 @@ const (
 	ERROR_NOT_ENOUGH_MONEY            int = 104
 	ERROR_WRONG_USER_ID               int = 105
 	ERROR_LOCK_TIMEOUT                int = 106
+	ERROR_NO_BALANCE                  int = 107
 )
 
 type TransactionData struct {

@@ -11,7 +11,8 @@ import (
 const (
 	SELECT_ADVISORY_LOCK                            string = "SELECT pg_advisory_xact_lock($1)"
 	SET_LOCK_TIMEOUT                                string = "SET LOCAL lock_timeout = '10s'"
-	SELECT_CURRENT_BALANCE                          string = "SELECT COALESCE(SUM(sum), 0) FROM transactions WHERE account = $1"
+	SELECT_CURRENT_BALANCE                          string = "SELECT SUM(sum) FROM transactions WHERE account = $1"
+	SELECT_CURRENT_BALANCE_COALESCE                 string = "SELECT COALESCE(SUM(sum), 0) FROM transactions WHERE account = $1"
 	COUNT_TRANSACTIONS                              string = "SELECT COUNT(*) FROM transactions WHERE account = $1"
 	CREATE_TRANSACTION                              string = "INSERT INTO transactions(account, sum, operation, description) VALUES($1, $2, $3, $4)"
 	GET_TRANSACTIONS_FROM_TO_ORDERED_DATE_FIRSTPAGE string = "SELECT id, sum, operation, date, description FROM transactions WHERE account = $1 AND date >= $2 AND date <= $3 ORDER BY date DESC LIMIT $4"
@@ -71,7 +72,7 @@ func (rep *AccountRepository) ExecuteTransaction(trxData TransactionData, oCode 
 			return nil, &OperationError{ERROR_LOCK_TIMEOUT}
 		}
 		var curBal float64
-		err = (*tx).QueryRow(rep.db.GetCtx(), SELECT_CURRENT_BALANCE, trxData.Id).Scan(&curBal)
+		err = (*tx).QueryRow(rep.db.GetCtx(), SELECT_CURRENT_BALANCE_COALESCE, trxData.Id).Scan(&curBal)
 		if err != nil {
 			return nil, err
 		}
@@ -93,12 +94,18 @@ func (rep *AccountRepository) ExecuteOperation(trxData TransactionData) error {
 }
 
 func (rep *AccountRepository) GetBalance(dt BalanceData) (float64, error) {
-	var curBal float64
+	var curBal *float64
 	_, err := rep.db.ExecuteInTransaction(func(tx *pgx.Tx) (interface{}, error) {
 		err := (*tx).QueryRow(rep.db.GetCtx(), SELECT_CURRENT_BALANCE, dt.Id).Scan(&curBal)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
 		return nil, err
 	})
-	return curBal, err
+	if curBal == nil {
+		return 0, &OperationError{ERROR_NO_BALANCE}
+	}
+	return *curBal, err
 }
 
 func (rep *AccountRepository) ExecuteTransfer(tData TransferData) error {

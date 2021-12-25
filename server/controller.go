@@ -29,6 +29,7 @@ const (
 	STATUS_WRONG_SUM               string = "sum must be a number"
 	STATUS_WRONG_START_DATE_FUTURE string = "start date must less than end date"
 	STATUS_TIMEOUT                 string = "try again later"
+	STATUS_NO_BALANCE              string = "This account has no balance"
 
 	PAGINATION_PAGE_SIZE int = 3
 )
@@ -40,6 +41,7 @@ var (
 		ERROR_TRANSACTIONS_WRONG_PAGE:     STATUS_WRONG_PAGE,
 		ERROR_TRANSACTIONS_WRONG_SORT:     STATUS_WRONG_SORT,
 		ERROR_LOCK_TIMEOUT:                STATUS_TIMEOUT,
+		ERROR_NO_BALANCE:                  STATUS_NO_BALANCE,
 	}
 
 	ACCOUNT_OPERATION_RESPONSE_CODE = map[int]int{
