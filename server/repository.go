@@ -9,18 +9,15 @@ import (
 )
 
 const (
-	SELECT_ADVISORY_LOCK                            string = "SELECT pg_advisory_xact_lock($1, 1)"
+	SELECT_ADVISORY_LOCK                            string = "SELECT pg_advisory_xact_lock($1)"
 	SET_LOCK_TIMEOUT                                string = "SET LOCAL lock_timeout = '10s'"
 	SELECT_CURRENT_BALANCE                          string = "SELECT COALESCE(SUM(sum), 0) FROM transactions WHERE account = $1"
 	COUNT_TRANSACTIONS                              string = "SELECT COUNT(*) FROM transactions WHERE account = $1"
 	CREATE_TRANSACTION                              string = "INSERT INTO transactions(account, sum, operation, description) VALUES($1, $2, $3, $4)"
 	GET_TRANSACTIONS_FROM_TO_ORDERED_DATE_FIRSTPAGE string = "SELECT id, sum, operation, date, description FROM transactions WHERE account = $1 AND date >= $2 AND date <= $3 ORDER BY date DESC LIMIT $4"
-	GET_TRANSACTIONS_FROM_TO_ORDERED_DATE           string = "SELECT id, sum, operation, date, description FROM transactions WHERE account = $1 AND date >= $2 AND date <= $3 AND id < $4 ORDER BY date DESC LIMIT $5"
-	GET_TRANSACTIONS_FROM_TO_ORDERED_SUM            string = "SELECT pager, transactions.sum, transactions.operation, transactions.date, transactions.description FROM transactions_sum_order INNER JOIN transactions ON transactions_sum_order.id = transactions.id WHERE transactions.account = $1 AND transactions.date >= $2 AND transactions.date <= $3 AND transactions_sum_order.pager >= $4 ORDER BY pager ASC LIMIT $5"
+	GET_TRANSACTIONS_FROM_TO_ORDERED_DATE           string = "SELECT id, sum, operation, date, description FROM transactions WHERE account = $1 AND date >= $2 AND date <= $3 AND id <= $4 ORDER BY date DESC LIMIT $5"
+	GET_TRANSACTIONS_FROM_TO_ORDERED_SUM            string = "SELECT transactions.id, sum, operation, date, description FROM transactions_sum_order INNER JOIN transactions ON transactions_sum_order.id = transactions.id WHERE transactions.account = $1 AND transactions.date >= $2 AND transactions.date <= $3 AND transactions_sum_order.pager >= $4 ORDER BY pager ASC LIMIT $5"
 	UPDATE_ORDERED_SUM_VIEW                         string = "REFRESH MATERIALIZED VIEW CONCURRENTLY transactions_sum_order"
-
-	SORT_TRANSACTIONS_DATE string = "ORDER BY date DESC"
-	SORT_TRANSACTIONS_SUM  string = "ORDER BY sum DESC"
 
 	OPERATION_INCOME_CODE   int = 0
 	OPERATION_OUTCOME_CODE  int = 1
@@ -131,15 +128,19 @@ func (rep *AccountRepository) GetTransactionsSortedByDate(trxData TransactionsLi
 	var rows pgx.Rows
 	var err error
 	if trxData.Page == 0 {
-		rows, err = rep.getTransactions(GET_TRANSACTIONS_FROM_TO_ORDERED_DATE_FIRSTPAGE, trxData.Id, trxData.From, trxData.To, PAGINATION_PAGE_SIZE)
+		rows, err = rep.getTransactions(GET_TRANSACTIONS_FROM_TO_ORDERED_DATE_FIRSTPAGE, trxData.Id, trxData.From, trxData.To, PAGINATION_PAGE_SIZE+1)
 	} else {
-		rows, err = rep.getTransactions(GET_TRANSACTIONS_FROM_TO_ORDERED_DATE, trxData.Id, trxData.From, trxData.To, trxData.Page, PAGINATION_PAGE_SIZE)
+		rows, err = rep.getTransactions(GET_TRANSACTIONS_FROM_TO_ORDERED_DATE, trxData.Id, trxData.From, trxData.To, trxData.Page, PAGINATION_PAGE_SIZE+1)
 	}
 	if err != nil {
 		return 0, nil, err
 	}
 	last, trxs, err := transactionRowsToArray((rows.(pgx.Rows)))
-	if len(trxs) < PAGINATION_PAGE_SIZE || last <= 1 {
+	l := len(trxs)
+	if l > 0 {
+		trxs = trxs[:l-1]
+	}
+	if l <= PAGINATION_PAGE_SIZE {
 		last = -1
 	}
 	return last, trxs, err
@@ -170,6 +171,7 @@ func transactionRowsToArray(rows pgx.Rows) (last int, trxs []map[string]interfac
 	for rows.Next() {
 		err = rows.Scan(&last, &sum, &operation, &date, &desc)
 		trx := map[string]interface{}{
+			"id":        last,
 			"sum":       sum,
 			"operation": operation,
 			"date":      time.Unix(date, 0),

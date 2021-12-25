@@ -30,7 +30,7 @@ const (
 	STATUS_WRONG_START_DATE_FUTURE string = "start date must less than end date"
 	STATUS_TIMEOUT                 string = "try again later"
 
-	PAGINATION_PAGE_SIZE int = 2
+	PAGINATION_PAGE_SIZE int = 3
 )
 
 var (
