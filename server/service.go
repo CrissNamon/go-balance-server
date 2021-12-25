@@ -1,7 +1,9 @@
 package server
 
 import (
-	_ "math"
+	"time"
+
+	"github.com/jackc/pgx/v4"
 )
 
 const (
@@ -69,16 +71,21 @@ func (s *AccountService) GetUserTransactions(trxData *TransactionsListData) (Tra
 	var trxs []map[string]interface{}
 	var err error
 	var last int
+	var rows pgx.Rows
 	switch trxData.Sort {
 	case "date":
-		last, trxs, err = s.accRep.GetTransactionsSortedByDate(*trxData)
+		rows, err = s.accRep.GetTransactionsSortedByDate(*trxData)
 	case "sum":
-		last, trxs, err = s.accRep.GetTransactionsSortedBySum(*trxData)
+		rows, err = s.accRep.GetTransactionsSortedBySum(*trxData)
 	case "":
-		last, trxs, err = s.accRep.GetTransactionsSortedByDate(*trxData)
+		rows, err = s.accRep.GetTransactionsSortedByDate(*trxData)
 	default:
 		return TransactionsData{}, &OperationError{ERROR_TRANSACTIONS_WRONG_SORT}
 	}
+	if err != nil {
+		return TransactionsData{}, ConvertError(err)
+	}
+	last, trxs, err = s.transactionRowsToArray(&rows)
 	if err != nil {
 		return TransactionsData{}, ConvertError(err)
 	}
@@ -102,4 +109,38 @@ func (s *AccountService) DoTransaction(tData *TransactionData) error {
 		return ConvertError(err)
 	}
 	return nil
+}
+
+func (s *AccountService) transactionRowsToArray(rows *pgx.Rows) (last int, trxs []map[string]interface{}, err error) {
+	trxs = []map[string]interface{}{}
+	var (
+		sum       float64
+		operation int
+		date      int64
+		desc      string
+	)
+	for (*rows).Next() {
+		err = (*rows).Scan(&last, &sum, &operation, &date, &desc)
+		trx := map[string]interface{}{
+			"sum":       sum,
+			"operation": operation,
+			"date":      time.Unix(date, 0),
+			"desc":      desc,
+		}
+		if err != nil {
+			return 0, trxs, err
+		}
+		trxs = append(trxs, trx)
+	}
+	if err != nil {
+		return 0, nil, err
+	}
+	l := len(trxs)
+	if l > PAGINATION_PAGE_SIZE {
+		trxs = trxs[:l-1]
+	}
+	if l <= PAGINATION_PAGE_SIZE {
+		last = -1
+	}
+	return last, trxs, err
 }

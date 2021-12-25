@@ -4,6 +4,7 @@ import (
 	"balance-server/server"
 	"testing"
 
+	"github.com/jackc/pgx/v4"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -12,8 +13,8 @@ type MockAccountRepository struct {
 	executeOperationFunc            func(trxData server.TransactionData) error
 	getBalanceFunc                  func(dt server.BalanceData) (float64, error)
 	executeTransferFunc             func(tData server.TransferData) error
-	getTransactionsSortedByDateFunc func(trxData server.TransactionsListData) (int, []map[string]interface{}, error)
-	getTransactionsSortedBySumFunc  func(trxData server.TransactionsListData) (int, []map[string]interface{}, error)
+	getTransactionsSortedByDateFunc func(trxData server.TransactionsListData) (pgx.Rows, error)
+	getTransactionsSortedBySumFunc  func(trxData server.TransactionsListData) (pgx.Rows, error)
 }
 
 func NewMockRepository() *MockAccountRepository {
@@ -40,11 +41,11 @@ func (rep *MockAccountRepository) ExecuteTransfer(tData server.TransferData) err
 	return rep.executeTransferFunc(tData)
 }
 
-func (rep *MockAccountRepository) GetTransactionsSortedByDate(trxData server.TransactionsListData) (int, []map[string]interface{}, error) {
+func (rep *MockAccountRepository) GetTransactionsSortedByDate(trxData server.TransactionsListData) (pgx.Rows, error) {
 	return rep.getTransactionsSortedByDateFunc(trxData)
 }
 
-func (rep *MockAccountRepository) GetTransactionsSortedBySum(trxData server.TransactionsListData) (int, []map[string]interface{}, error) {
+func (rep *MockAccountRepository) GetTransactionsSortedBySum(trxData server.TransactionsListData) (pgx.Rows, error) {
 	return rep.getTransactionsSortedBySumFunc(trxData)
 }
 
@@ -83,8 +84,8 @@ func TestGetUserTransactionsWrongSort(t *testing.T) {
 func TestGetUserTransactionsWrongPage(t *testing.T) {
 	t.SkipNow()
 	rep := &MockAccountRepository{
-		getTransactionsSortedByDateFunc: func(trxData server.TransactionsListData) (int, []map[string]interface{}, error) {
-			return 0, nil, nil
+		getTransactionsSortedByDateFunc: func(trxData server.TransactionsListData) (pgx.Rows, error) {
+			return nil, nil
 		},
 	}
 	srv := server.NewAccountService(rep)

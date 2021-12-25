@@ -3,7 +3,6 @@ package server
 import (
 	"fmt"
 	"math"
-	"time"
 
 	"github.com/jackc/pgx/v4"
 )
@@ -17,7 +16,7 @@ const (
 	CREATE_TRANSACTION                              string = "INSERT INTO transactions(account, sum, operation, description) VALUES($1, $2, $3, $4)"
 	GET_TRANSACTIONS_FROM_TO_ORDERED_DATE_FIRSTPAGE string = "SELECT id, sum, operation, date, description FROM transactions WHERE account = $1 AND date >= $2 AND date <= $3 ORDER BY date DESC LIMIT $4"
 	GET_TRANSACTIONS_FROM_TO_ORDERED_DATE           string = "SELECT id, sum, operation, date, description FROM transactions WHERE account = $1 AND date >= $2 AND date <= $3 AND id <= $4 ORDER BY date DESC LIMIT $5"
-	GET_TRANSACTIONS_FROM_TO_ORDERED_SUM            string = "SELECT transactions.id, sum, operation, date, description FROM transactions_sum_order INNER JOIN transactions ON transactions_sum_order.id = transactions.id WHERE transactions.account = $1 AND transactions.date >= $2 AND transactions.date <= $3 AND transactions_sum_order.pager >= $4 ORDER BY pager ASC LIMIT $5"
+	GET_TRANSACTIONS_FROM_TO_ORDERED_SUM            string = "SELECT pager, sum, operation, date, description FROM transactions_sum_order INNER JOIN transactions ON transactions_sum_order.id = transactions.id WHERE transactions.account = $1 AND transactions.date >= $2 AND transactions.date <= $3 AND transactions_sum_order.pager >= $4 ORDER BY pager ASC LIMIT $5"
 	UPDATE_ORDERED_SUM_VIEW                         string = "REFRESH MATERIALIZED VIEW CONCURRENTLY transactions_sum_order"
 
 	OPERATION_INCOME_CODE  int = 0
@@ -56,8 +55,8 @@ type AccountRepositoryI interface {
 	ExecuteOperation(trxData TransactionData) error
 	GetBalance(dt BalanceData) (float64, error)
 	ExecuteTransfer(tData TransferData) error
-	GetTransactionsSortedByDate(trxData TransactionsListData) (int, []map[string]interface{}, error)
-	GetTransactionsSortedBySum(trxData TransactionsListData) (int, []map[string]interface{}, error)
+	GetTransactionsSortedByDate(trxData TransactionsListData) (pgx.Rows, error)
+	GetTransactionsSortedBySum(trxData TransactionsListData) (pgx.Rows, error)
 }
 
 type AccountRepository struct {
@@ -138,7 +137,7 @@ func (rep *AccountRepository) getTransactions(qry string, args ...interface{}) (
 	return rows.(pgx.Rows), nil
 }
 
-func (rep *AccountRepository) GetTransactionsSortedByDate(trxData TransactionsListData) (int, []map[string]interface{}, error) {
+func (rep *AccountRepository) GetTransactionsSortedByDate(trxData TransactionsListData) (pgx.Rows, error) {
 	var rows pgx.Rows
 	var err error
 	if trxData.Page == 0 {
@@ -147,56 +146,17 @@ func (rep *AccountRepository) GetTransactionsSortedByDate(trxData TransactionsLi
 		rows, err = rep.getTransactions(GET_TRANSACTIONS_FROM_TO_ORDERED_DATE, trxData.Id, trxData.From, trxData.To, trxData.Page, PAGINATION_PAGE_SIZE+1)
 	}
 	if err != nil {
-		return 0, nil, err
+		return nil, err
 	}
-	last, trxs, err := rep.transactionRowsToArray(rows.(pgx.Rows))
-	l := len(trxs)
-	if l > 0 {
-		trxs = trxs[:l-1]
-	}
-	if l <= PAGINATION_PAGE_SIZE {
-		last = -1
-	}
-	return last, trxs, err
+	return rows, nil
 }
 
-func (rep *AccountRepository) GetTransactionsSortedBySum(trxData TransactionsListData) (int, []map[string]interface{}, error) {
-	rows, err := rep.getTransactions(GET_TRANSACTIONS_FROM_TO_ORDERED_SUM, trxData.Id, trxData.From, trxData.To, trxData.Page, PAGINATION_PAGE_SIZE)
+func (rep *AccountRepository) GetTransactionsSortedBySum(trxData TransactionsListData) (pgx.Rows, error) {
+	rows, err := rep.getTransactions(GET_TRANSACTIONS_FROM_TO_ORDERED_SUM, trxData.Id, trxData.From, trxData.To, trxData.Page, PAGINATION_PAGE_SIZE+1)
 	if err != nil {
-		return 0, nil, err
+		return nil, err
 	}
-	last, trxs, err := rep.transactionRowsToArray(rows.(pgx.Rows))
-	if last == trxData.Page {
-		last = -1
-	} else {
-		last++
-	}
-	return last, trxs, err
-}
-
-func (rep *AccountRepository) transactionRowsToArray(rows pgx.Rows) (last int, trxs []map[string]interface{}, err error) {
-	trxs = []map[string]interface{}{}
-	var (
-		sum       float64
-		operation int
-		date      int64
-		desc      string
-	)
-	for rows.Next() {
-		err = rows.Scan(&last, &sum, &operation, &date, &desc)
-		trx := map[string]interface{}{
-			"id":        last,
-			"sum":       sum,
-			"operation": operation,
-			"date":      time.Unix(date, 0),
-			"desc":      desc,
-		}
-		if err != nil {
-			return 0, trxs, err
-		}
-		trxs = append(trxs, trx)
-	}
-	return last, trxs, err
+	return rows, nil
 }
 
 func (rep *AccountRepository) shouldBeLocked(oCode int) bool {

@@ -31,7 +31,7 @@ const (
 	STATUS_TIMEOUT                 string = "try again later"
 	STATUS_NO_BALANCE              string = "This account has no balance"
 
-	PAGINATION_PAGE_SIZE int = 3
+	PAGINATION_PAGE_SIZE int = 2
 )
 
 var (
