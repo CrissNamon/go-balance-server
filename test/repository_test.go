@@ -29,14 +29,12 @@ func TestTransactionWrongRequest(t *testing.T) {
 }
 
 func TestTransactionBalanceNotExistingUser(t *testing.T) {
-	exp := float64(0)
-	bal, err := testDb.ExecuteInTransaction(func(tx *pgx.Tx) (interface{}, error) {
-		var curBal float64
+	_, err := testDb.ExecuteInTransaction(func(tx *pgx.Tx) (interface{}, error) {
+		var curBal *float64
 		err := (*tx).QueryRow(testDb.Ctx, server.SELECT_CURRENT_BALANCE, 123125).Scan(&curBal)
 		return curBal, err
 	})
 	assert.Nil(t, err)
-	assert.Equal(t, exp, bal, "Expected balance: ", exp, ", but got: ", bal)
 }
 
 func NewTestDatabase() *server.Database {

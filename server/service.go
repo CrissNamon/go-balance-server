@@ -48,12 +48,12 @@ func NewAccountService(r AccountRepositoryI) *AccountService {
 }
 
 func (s *AccountService) GetUserBalance(bData *BalanceData) (float64, error) {
+	if len(bData.Cur) != 3 {
+		return 0, &OperationError{ERROR_BALANCE_WRONG_CURRENCY_CODE}
+	}
 	curBal, err := s.accRep.GetBalance(*bData)
 	if err != nil {
 		return 0, ConvertError(err)
-	}
-	if len(bData.Cur) != 3 {
-		return 0, &OperationError{ERROR_BALANCE_WRONG_CURRENCY_CODE}
 	}
 	if bData.Cur != BASE_CURRENCY {
 		rate, err := GetCurrencyRate(BASE_CURRENCY, (*bData).Cur)

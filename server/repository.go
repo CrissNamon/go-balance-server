@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	SELECT_ADVISORY_LOCK                            string = "SELECT pg_advisory_xact_lock($1)"
+	SELECT_ADVISORY_LOCK                            string = "SELECT pg_advisory_xact_lock($1, $2)"
 	SET_LOCK_TIMEOUT                                string = "SET LOCAL lock_timeout = '10s'"
 	SELECT_CURRENT_BALANCE                          string = "SELECT SUM(sum) FROM transactions WHERE account = $1"
 	SELECT_CURRENT_BALANCE_COALESCE                 string = "SELECT COALESCE(SUM(sum), 0) FROM transactions WHERE account = $1"
@@ -20,11 +20,16 @@ const (
 	GET_TRANSACTIONS_FROM_TO_ORDERED_SUM            string = "SELECT transactions.id, sum, operation, date, description FROM transactions_sum_order INNER JOIN transactions ON transactions_sum_order.id = transactions.id WHERE transactions.account = $1 AND transactions.date >= $2 AND transactions.date <= $3 AND transactions_sum_order.pager >= $4 ORDER BY pager ASC LIMIT $5"
 	UPDATE_ORDERED_SUM_VIEW                         string = "REFRESH MATERIALIZED VIEW CONCURRENTLY transactions_sum_order"
 
-	OPERATION_INCOME_CODE   int = 0
-	OPERATION_OUTCOME_CODE  int = 1
-	OPERATION_TRANSFER_CODE int = 2
+	OPERATION_INCOME_CODE  int = 0
+	OPERATION_OUTCOME_CODE int = 1
 
 	OPERATION_TRANSFER_DESC string = "Transfer to user %d from user %d"
+)
+
+var (
+	LOCKED_OPERATIONS = map[int]bool{
+		OPERATION_OUTCOME_CODE: true,
+	}
 )
 
 type TransactionViewsRefresher struct {
@@ -65,11 +70,13 @@ func NewAccountRepository(db DatabaseI) *AccountRepository {
 
 func (rep *AccountRepository) ExecuteTransaction(trxData TransactionData, oCode int) error {
 	_, err := rep.db.ExecuteInTransaction(func(tx *pgx.Tx) (interface{}, error) {
-		(*tx).Exec(rep.db.GetCtx(), SET_LOCK_TIMEOUT)
-		_, err := (*tx).Exec(rep.db.GetCtx(), SELECT_ADVISORY_LOCK, trxData.Id)
-		if err != nil {
-			fmt.Println(err.Error())
-			return nil, &OperationError{ERROR_LOCK_TIMEOUT}
+		var err error
+		if l := rep.shouldBeLocked(oCode); l {
+			(*tx).Exec(rep.db.GetCtx(), SET_LOCK_TIMEOUT)
+			_, err = (*tx).Exec(rep.db.GetCtx(), SELECT_ADVISORY_LOCK, trxData.Id, oCode)
+			if err != nil {
+				return nil, &OperationError{ERROR_LOCK_TIMEOUT}
+			}
 		}
 		var curBal float64
 		err = (*tx).QueryRow(rep.db.GetCtx(), SELECT_CURRENT_BALANCE_COALESCE, trxData.Id).Scan(&curBal)
@@ -111,12 +118,12 @@ func (rep *AccountRepository) GetBalance(dt BalanceData) (float64, error) {
 func (rep *AccountRepository) ExecuteTransfer(tData TransferData) error {
 	desc := fmt.Sprintf(OPERATION_TRANSFER_DESC, tData.To, tData.From)
 	trxData := TransactionData{tData.From, -tData.Sum, desc}
-	err := rep.ExecuteTransaction(trxData, OPERATION_TRANSFER_CODE)
+	err := rep.ExecuteTransaction(trxData, OPERATION_OUTCOME_CODE)
 	if err != nil {
 		return err
 	}
 	trxData = TransactionData{tData.To, tData.Sum, desc}
-	err = rep.ExecuteTransaction(trxData, OPERATION_TRANSFER_CODE)
+	err = rep.ExecuteTransaction(trxData, OPERATION_INCOME_CODE)
 	return err
 }
 
@@ -142,7 +149,7 @@ func (rep *AccountRepository) GetTransactionsSortedByDate(trxData TransactionsLi
 	if err != nil {
 		return 0, nil, err
 	}
-	last, trxs, err := transactionRowsToArray((rows.(pgx.Rows)))
+	last, trxs, err := rep.transactionRowsToArray(rows.(pgx.Rows))
 	l := len(trxs)
 	if l > 0 {
 		trxs = trxs[:l-1]
@@ -158,7 +165,7 @@ func (rep *AccountRepository) GetTransactionsSortedBySum(trxData TransactionsLis
 	if err != nil {
 		return 0, nil, err
 	}
-	last, trxs, err := transactionRowsToArray((rows.(pgx.Rows)))
+	last, trxs, err := rep.transactionRowsToArray(rows.(pgx.Rows))
 	if last == trxData.Page {
 		last = -1
 	} else {
@@ -167,7 +174,7 @@ func (rep *AccountRepository) GetTransactionsSortedBySum(trxData TransactionsLis
 	return last, trxs, err
 }
 
-func transactionRowsToArray(rows pgx.Rows) (last int, trxs []map[string]interface{}, err error) {
+func (rep *AccountRepository) transactionRowsToArray(rows pgx.Rows) (last int, trxs []map[string]interface{}, err error) {
 	trxs = []map[string]interface{}{}
 	var (
 		sum       float64
@@ -190,4 +197,12 @@ func transactionRowsToArray(rows pgx.Rows) (last int, trxs []map[string]interfac
 		trxs = append(trxs, trx)
 	}
 	return last, trxs, err
+}
+
+func (rep *AccountRepository) shouldBeLocked(oCode int) bool {
+	r, ok := LOCKED_OPERATIONS[oCode]
+	if !ok {
+		return false
+	}
+	return r
 }

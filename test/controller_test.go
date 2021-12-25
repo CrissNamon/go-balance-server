@@ -44,7 +44,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestBalanceNotExistingUser(t *testing.T) {
-	exp := TestTable{server.STATUS_CODE_OK, float64(0), 200}
+	exp := TestTable{server.ERROR_NO_BALANCE, server.STATUS_NO_BALANCE, 200}
 	res := TestTable{}
 	d := server.BalanceRequest{Id: 1, Cur: "RUB"}
 	makeRequest(t, "GET", server.URL_BALANCE, &d, &res)
@@ -61,8 +61,11 @@ func TestBalanceWrongUser(t *testing.T) {
 }
 
 func TestBalanceWrongCurrencyCode(t *testing.T) {
-	exp := TestTable{server.ERROR_BALANCE_WRONG_CURRENCY_CODE, server.AccountExpectedResult.GetStatus(server.ERROR_BALANCE_WRONG_CURRENCY_CODE), 400}
+	tD := server.TransactionRequest{Id: 1, Sum: 1}
 	res := TestTable{}
+	makeRequest(t, "POST", server.URL_TRANSACTION, &tD, &res)
+	res = TestTable{}
+	exp := TestTable{server.ERROR_BALANCE_WRONG_CURRENCY_CODE, server.AccountExpectedResult.GetStatus(server.ERROR_BALANCE_WRONG_CURRENCY_CODE), 400}
 	d := server.BalanceRequest{Id: 1, Cur: "WRONG_CURRENCY"}
 	makeRequest(t, "GET", server.URL_BALANCE, &d, &res)
 	httpTest(t, &res, &exp)
