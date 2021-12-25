@@ -49,7 +49,6 @@ func (db *Database) ExecuteInTransaction(actn func(tx *pgx.Tx) (interface{}, err
 	if err != nil {
 		return nil, &OperationError{ERROR_INTERNAL}
 	}
-	res, err := actn(&tx)
 	defer func() {
 		if err != nil {
 			tx.Rollback(db.Ctx)
@@ -57,6 +56,7 @@ func (db *Database) ExecuteInTransaction(actn func(tx *pgx.Tx) (interface{}, err
 			tx.Commit(db.Ctx)
 		}
 	}()
+	res, err := actn(&tx)
 	return res, err
 }
 

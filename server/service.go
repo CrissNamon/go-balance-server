@@ -1,7 +1,7 @@
 package server
 
 import (
-	"math"
+	_ "math"
 )
 
 const (
@@ -9,6 +9,8 @@ const (
 	ERROR_TRANSACTIONS_WRONG_SORT     int = 102
 	ERROR_TRANSACTIONS_WRONG_PAGE     int = 103
 	ERROR_NOT_ENOUGH_MONEY            int = 104
+	ERROR_WRONG_USER_ID               int = 105
+	ERROR_LOCK_TIMEOUT                int = 106
 )
 
 type TransactionData struct {
@@ -53,45 +55,36 @@ func (s *AccountService) GetUserBalance(bData *BalanceData) (float64, error) {
 		return 0, &OperationError{ERROR_BALANCE_WRONG_CURRENCY_CODE}
 	}
 	if bData.Cur != BASE_CURRENCY {
-		if rate, err := GetCurrencyRate(BASE_CURRENCY, (*bData).Cur); err != nil {
+		rate, err := GetCurrencyRate(BASE_CURRENCY, (*bData).Cur)
+		if err != nil {
 			return 0, ConvertError(err)
-		} else {
-			curBal *= rate
 		}
+		curBal *= rate
 	}
 	return curBal, nil
 }
 
-func (s *AccountService) GetUserTransactions(trxData *TransactionsListData) ([]map[string]interface{}, error) {
+func (s *AccountService) GetUserTransactions(trxData *TransactionsListData) (TransactionsData, error) {
 	var trxs []map[string]interface{}
 	var err error
+	var last int
 	switch trxData.Sort {
 	case "date":
-		trxs, err = s.accRep.GetTransactionsSortedByDate(*trxData)
+		last, trxs, err = s.accRep.GetTransactionsSortedByDate(*trxData)
 	case "sum":
-		trxs, err = s.accRep.GetTransactionsSortedBySum(*trxData)
+		last, trxs, err = s.accRep.GetTransactionsSortedBySum(*trxData)
 	case "":
-		trxs, err = s.accRep.GetTransactionsSortedByDate(*trxData)
+		last, trxs, err = s.accRep.GetTransactionsSortedByDate(*trxData)
 	default:
-		return nil, &OperationError{ERROR_TRANSACTIONS_WRONG_SORT}
+		return TransactionsData{}, &OperationError{ERROR_TRANSACTIONS_WRONG_SORT}
 	}
 	if err != nil {
-		return nil, ConvertError(err)
+		return TransactionsData{}, ConvertError(err)
 	}
-	if trxData.Page == 0 {
-		return trxs, nil
+	if len(trxs) == 0 && trxData.Page > 0 {
+		return TransactionsData{}, &OperationError{ERROR_TRANSACTIONS_WRONG_PAGE}
 	}
-	l := len(trxs)
-	pgs := int(math.Ceil(float64(l) / float64(PAGINATION_PAGE_SIZE)))
-	if trxData.Page > pgs {
-		return nil, &OperationError{ERROR_TRANSACTIONS_WRONG_PAGE}
-	}
-	start := (trxData.Page - 1) * PAGINATION_PAGE_SIZE
-	end := trxData.Page * PAGINATION_PAGE_SIZE
-	if end > l {
-		end = l
-	}
-	return trxs[start:end], nil
+	return TransactionsData{last, trxs}, nil
 }
 
 func (s *AccountService) TransferMoney(tData *TransferData) error {

@@ -16,15 +16,21 @@ const (
 	STATUS_CODE_WRONG_REQUEST  int = 1
 	STATUS_CODE_INTERNAL_ERROR int = 3
 
-	STATUS_NOT_ENOUGHT_MONEY     string = "Not enought money"
-	STATUS_TRANSACTION_COMPLETED string = "Transaction completed"
-	STATUS_INTERNAL_ERROR        string = "Internal server error"
-	STATUS_TRANSFER_COMPLETED    string = "Transfer completed"
-	STATUS_WRONG_CURRENCY_CODE   string = "Wrong currency code"
-	STATUS_WRONG_SORT            string = "Wrong sorting key"
-	STATUS_WRONG_PAGE            string = "Wrong page number"
+	STATUS_NOT_ENOUGHT_MONEY       string = "Not enought money"
+	STATUS_TRANSACTION_COMPLETED   string = "Transaction completed"
+	STATUS_INTERNAL_ERROR          string = "Internal server error"
+	STATUS_TRANSFER_COMPLETED      string = "Transfer completed"
+	STATUS_WRONG_CURRENCY_CODE     string = "Wrong currency code"
+	STATUS_WRONG_SORT              string = "Wrong sorting key"
+	STATUS_WRONG_PAGE              string = "Wrong page number"
+	STATUS_WRONG_ID                string = "user id must be positive"
+	STATUS_WRONG_IDS_NOT_UNIQUE    string = "user ids must be different"
+	STATUS_WRONG_SUM_NOT_POSITIVE  string = "sum must be positive number"
+	STATUS_WRONG_SUM               string = "sum must be a number"
+	STATUS_WRONG_START_DATE_FUTURE string = "start date must less than end date"
+	STATUS_TIMEOUT                 string = "try again later"
 
-	PAGINATION_PAGE_SIZE int = 2
+	PAGINATION_PAGE_SIZE int = 3
 )
 
 var (
@@ -33,12 +39,14 @@ var (
 		ERROR_BALANCE_WRONG_CURRENCY_CODE: STATUS_WRONG_CURRENCY_CODE,
 		ERROR_TRANSACTIONS_WRONG_PAGE:     STATUS_WRONG_PAGE,
 		ERROR_TRANSACTIONS_WRONG_SORT:     STATUS_WRONG_SORT,
+		ERROR_LOCK_TIMEOUT:                STATUS_TIMEOUT,
 	}
 
 	ACCOUNT_OPERATION_RESPONSE_CODE = map[int]int{
 		ERROR_TRANSACTIONS_WRONG_PAGE:     400,
 		ERROR_TRANSACTIONS_WRONG_SORT:     400,
 		ERROR_BALANCE_WRONG_CURRENCY_CODE: 400,
+		ERROR_LOCK_TIMEOUT:                408,
 	}
 )
 
@@ -48,6 +56,11 @@ var (
 		ACCOUNT_OPERATION_RESPONSE_CODE,
 	}
 )
+
+type TransactionsData struct {
+	Last int                      `json:"next"`
+	Trxs []map[string]interface{} `json:"transactions"`
+}
 
 type TransactionRequest struct {
 	Id   int     `form:"id" json:"id" binding:"required,numeric,gte=0"`
@@ -68,10 +81,10 @@ type BalanceRequest struct {
 
 type TransactionsRequest struct {
 	Id   int    `form:"id" json:"id" binding:"required,numeric,gte=0`
-	From int64  `form:"from" json:"from"`
-	To   int64  `form:"to" json:"to"`
+	From int64  `form:"start" json:"start"`
+	To   int64  `form:"end" json:"end"`
 	Sort string `form:"sort" json:"sort"`
-	Page int    `form:"page" json:"page" binding:"gte=0"`
+	Page int    `form:"from" json:"from" binding:"gte=0"`
 }
 
 type AccountController struct {
@@ -87,7 +100,7 @@ func (acc *AccountController) Transaction(c *gin.Context) {
 	var trxReq TransactionRequest
 	r := Result{c, STATUS_CODE_OK, STATUS_TRANSACTION_COMPLETED}
 	if err := c.ShouldBindJSON(&trxReq); err != nil {
-		r.BadRequest("user id must be positive number and sum must be greater than zero")
+		r.BadRequest(STATUS_WRONG_ID + ", " + STATUS_WRONG_SUM)
 		return
 	}
 	trxData := TransactionData{trxReq.Id, trxReq.Sum, trxReq.Desc}
@@ -103,11 +116,11 @@ func (acc *AccountController) Transfer(c *gin.Context) {
 	var sReq SendRequest
 	r := Result{c, STATUS_CODE_OK, STATUS_TRANSFER_COMPLETED}
 	if err := c.ShouldBindJSON(&sReq); err != nil {
-		r.BadRequest("user ids must be positive numbers and sum must be greater than zero")
+		r.BadRequest(STATUS_WRONG_ID + ", " + STATUS_WRONG_SUM_NOT_POSITIVE)
 		return
 	}
 	if sReq.From == sReq.To {
-		r.BadRequest("user ids must be different")
+		r.BadRequest(STATUS_WRONG_IDS_NOT_UNIQUE)
 		return
 	}
 	tData := TransferData{sReq.From, sReq.To, sReq.Sum}
@@ -123,7 +136,7 @@ func (acc *AccountController) Balance(c *gin.Context) {
 	r := Result{c, STATUS_CODE_OK, 0}
 	blncReq := BalanceRequest{0, BASE_CURRENCY}
 	if err := c.ShouldBindJSON(&blncReq); err != nil {
-		r.BadRequest(err.Error())
+		r.BadRequest(STATUS_WRONG_ID)
 		return
 	}
 	bData := BalanceData{blncReq.Id, blncReq.Cur}
@@ -139,7 +152,7 @@ func (acc *AccountController) Transactions(c *gin.Context) {
 	r := Result{c, STATUS_CODE_OK, map[string]interface{}{}}
 	var trxsReq TransactionsRequest
 	if err := c.ShouldBindJSON(&trxsReq); err != nil {
-		r.BadRequest("user id must be positive")
+		r.BadRequest(STATUS_WRONG_ID)
 		return
 	}
 	to := trxsReq.To
@@ -147,7 +160,7 @@ func (acc *AccountController) Transactions(c *gin.Context) {
 		to = time.Now().Unix()
 	}
 	if trxsReq.From > to {
-		r.BadRequest("start date must be less than end date")
+		r.BadRequest(STATUS_WRONG_START_DATE_FUTURE)
 		return
 	}
 	trxData := TransactionsListData{trxsReq.Id, trxsReq.From, to, trxsReq.Page, trxsReq.Sort}
@@ -156,5 +169,6 @@ func (acc *AccountController) Transactions(c *gin.Context) {
 		r.Err(&err, &AccountExpectedResult)
 		return
 	}
+
 	r.Give(trxs)
 }

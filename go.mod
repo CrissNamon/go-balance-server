@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/gin-gonic/gin v1.7.7
 	github.com/jackc/pgx/v4 v4.8.1
+	github.com/onatm/clockwerk v0.0.0-20190910145222-354c9bd6cf28
 	github.com/stretchr/testify v1.5.1
 )
 

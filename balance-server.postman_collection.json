@@ -74,7 +74,35 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\"id\": 1, \"sum\": 100, \"desc\": \"Random income\"}",
+					"raw": "{\"id\": 1, \"sum\": -100, \"desc\": \"Random outcome\"}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/transaction",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"transaction"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "http://localhost:8080/transaction Copy",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"id\": 1, \"sum\": 500, \"desc\": \"Random income\"}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -133,7 +161,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\"id\": 1, \"sum\": 20, \"to\": 2}",
+					"raw": "{\"id\": 1, \"sum\": 20, \"to\": 1}",
 					"options": {
 						"raw": {
 							"language": "json"

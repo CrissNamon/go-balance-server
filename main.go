@@ -2,8 +2,10 @@ package main
 
 import (
 	"balance-server/server"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/onatm/clockwerk"
 )
 
 var (
@@ -15,6 +17,12 @@ var (
 
 func main() {
 	defer db.Close()
+
+	txVR := server.NewTransactionViewsRefresher(db)
+	c := clockwerk.New()
+	c.Every(3 * time.Minute).Do(txVR)
+
+	c.Start()
 
 	router.NoRoute(server.NoRoute)
 	router.POST(server.URL_TRANSACTION, acc.Transaction)

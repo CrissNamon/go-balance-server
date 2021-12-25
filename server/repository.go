@@ -9,13 +9,15 @@ import (
 )
 
 const (
-	SELECT_CURRENT_BALANCE   string = "SELECT COALESCE(SUM(sum), 0) FROM transactions WHERE account = $1"
-	COUNT_TRANSACTIONS       string = "SELECT COUNT(*) FROM transactions WHERE account = $1"
-	CREATE_TRANSACTION       string = "INSERT INTO transactions(account, sum, operation, description) VALUES($1, $2, $3, $4)"
-	GET_TRANSACTIONS_FROM_TO string = "SELECT sum, operation, date, description FROM transactions WHERE account = $1 AND date >= $2 AND date <= $3"
-
-	SORT_TRANSACTIONS_DATE string = "ORDER BY date DESC"
-	SORT_TRANSACTIONS_SUM  string = "ORDER BY sum DESC"
+	SELECT_ADVISORY_LOCK                            string = "SELECT pg_advisory_xact_lock($1)"
+	SET_LOCK_TIMEOUT                                string = "SET LOCAL lock_timeout = '10s'"
+	SELECT_CURRENT_BALANCE                          string = "SELECT COALESCE(SUM(sum), 0) FROM transactions WHERE account = $1"
+	COUNT_TRANSACTIONS                              string = "SELECT COUNT(*) FROM transactions WHERE account = $1"
+	CREATE_TRANSACTION                              string = "INSERT INTO transactions(account, sum, operation, description) VALUES($1, $2, $3, $4)"
+	GET_TRANSACTIONS_FROM_TO_ORDERED_DATE_FIRSTPAGE string = "SELECT id, sum, operation, date, description FROM transactions WHERE account = $1 AND date >= $2 AND date <= $3 ORDER BY date DESC LIMIT $4"
+	GET_TRANSACTIONS_FROM_TO_ORDERED_DATE           string = "SELECT id, sum, operation, date, description FROM transactions WHERE account = $1 AND date >= $2 AND date <= $3 AND id <= $4 ORDER BY date DESC LIMIT $5"
+	GET_TRANSACTIONS_FROM_TO_ORDERED_SUM            string = "SELECT transactions.id, sum, operation, date, description FROM transactions_sum_order INNER JOIN transactions ON transactions_sum_order.id = transactions.id WHERE transactions.account = $1 AND transactions.date >= $2 AND transactions.date <= $3 AND transactions_sum_order.pager >= $4 ORDER BY pager ASC LIMIT $5"
+	UPDATE_ORDERED_SUM_VIEW                         string = "REFRESH MATERIALIZED VIEW CONCURRENTLY transactions_sum_order"
 
 	OPERATION_INCOME_CODE   int = 0
 	OPERATION_OUTCOME_CODE  int = 1
@@ -24,13 +26,32 @@ const (
 	OPERATION_TRANSFER_DESC string = "Transfer to user %d from user %d"
 )
 
+type TransactionViewsRefresher struct {
+	db DatabaseI
+}
+
+func NewTransactionViewsRefresher(db DatabaseI) *TransactionViewsRefresher {
+	return &TransactionViewsRefresher{db}
+}
+
+func (r *TransactionViewsRefresher) Run() {
+	fmt.Println("Updating DB transaction_sum_order view")
+	r.db.ExecuteInTransaction(func(tx *pgx.Tx) (interface{}, error) {
+		_, err := (*tx).Exec(r.db.GetCtx(), UPDATE_ORDERED_SUM_VIEW)
+		if err != nil {
+			return nil, err
+		}
+		return nil, nil
+	})
+}
+
 type AccountRepositoryI interface {
 	ExecuteTransaction(trxData TransactionData, oCode int) error
 	ExecuteOperation(trxData TransactionData) error
 	GetBalance(dt BalanceData) (float64, error)
 	ExecuteTransfer(tData TransferData) error
-	GetTransactionsSortedByDate(trxData TransactionsListData) ([]map[string]interface{}, error)
-	GetTransactionsSortedBySum(trxData TransactionsListData) ([]map[string]interface{}, error)
+	GetTransactionsSortedByDate(trxData TransactionsListData) (int, []map[string]interface{}, error)
+	GetTransactionsSortedBySum(trxData TransactionsListData) (int, []map[string]interface{}, error)
 }
 
 type AccountRepository struct {
@@ -43,8 +64,14 @@ func NewAccountRepository(db DatabaseI) *AccountRepository {
 
 func (rep *AccountRepository) ExecuteTransaction(trxData TransactionData, oCode int) error {
 	_, err := rep.db.ExecuteInTransaction(func(tx *pgx.Tx) (interface{}, error) {
+		(*tx).Exec(rep.db.GetCtx(), SET_LOCK_TIMEOUT)
+		_, err := (*tx).Exec(rep.db.GetCtx(), SELECT_ADVISORY_LOCK, trxData.Id)
+		if err != nil {
+			fmt.Println(err.Error())
+			return nil, &OperationError{ERROR_LOCK_TIMEOUT}
+		}
 		var curBal float64
-		err := (*tx).QueryRow(rep.db.GetCtx(), SELECT_CURRENT_BALANCE, trxData.Id).Scan(&curBal)
+		err = (*tx).QueryRow(rep.db.GetCtx(), SELECT_CURRENT_BALANCE, trxData.Id).Scan(&curBal)
 		if err != nil {
 			return nil, err
 		}
@@ -86,50 +113,74 @@ func (rep *AccountRepository) ExecuteTransfer(tData TransferData) error {
 	return err
 }
 
-func (rep *AccountRepository) GetTransactionsWithSort(trxData TransactionsListData, sort string) ([]map[string]interface{}, error) {
-	qry := GET_TRANSACTIONS_FROM_TO + " " + sort
+func (rep *AccountRepository) getTransactions(qry string, args ...interface{}) (pgx.Rows, error) {
 	rows, err := rep.db.ExecuteInTransaction(func(tx *pgx.Tx) (interface{}, error) {
-		r, err := (*tx).Query(rep.db.GetCtx(), qry, trxData.Id, trxData.From, trxData.To)
-		if err != nil {
-			return nil, err
-		}
-		return r, nil
+		return (*tx).Query(rep.db.GetCtx(), qry, args...)
+
 	})
 	if err != nil {
-		return []map[string]interface{}{}, err
+		return nil, err
 	}
-	trxs, err := transactionRowsToArray((rows.(pgx.Rows)))
-	return trxs, err
+	return rows.(pgx.Rows), nil
 }
 
-func (rep *AccountRepository) GetTransactionsSortedByDate(trxData TransactionsListData) ([]map[string]interface{}, error) {
-	return rep.GetTransactionsWithSort(trxData, SORT_TRANSACTIONS_DATE)
+func (rep *AccountRepository) GetTransactionsSortedByDate(trxData TransactionsListData) (int, []map[string]interface{}, error) {
+	var rows pgx.Rows
+	var err error
+	if trxData.Page == 0 {
+		rows, err = rep.getTransactions(GET_TRANSACTIONS_FROM_TO_ORDERED_DATE_FIRSTPAGE, trxData.Id, trxData.From, trxData.To, PAGINATION_PAGE_SIZE+1)
+	} else {
+		rows, err = rep.getTransactions(GET_TRANSACTIONS_FROM_TO_ORDERED_DATE, trxData.Id, trxData.From, trxData.To, trxData.Page, PAGINATION_PAGE_SIZE+1)
+	}
+	if err != nil {
+		return 0, nil, err
+	}
+	last, trxs, err := transactionRowsToArray((rows.(pgx.Rows)))
+	l := len(trxs)
+	if l > 0 {
+		trxs = trxs[:l-1]
+	}
+	if l <= PAGINATION_PAGE_SIZE {
+		last = -1
+	}
+	return last, trxs, err
 }
 
-func (rep *AccountRepository) GetTransactionsSortedBySum(trxData TransactionsListData) ([]map[string]interface{}, error) {
-	return rep.GetTransactionsWithSort(trxData, SORT_TRANSACTIONS_SUM)
+func (rep *AccountRepository) GetTransactionsSortedBySum(trxData TransactionsListData) (int, []map[string]interface{}, error) {
+	rows, err := rep.getTransactions(GET_TRANSACTIONS_FROM_TO_ORDERED_SUM, trxData.Id, trxData.From, trxData.To, trxData.Page, PAGINATION_PAGE_SIZE)
+	if err != nil {
+		return 0, nil, err
+	}
+	last, trxs, err := transactionRowsToArray((rows.(pgx.Rows)))
+	if last == trxData.Page {
+		last = -1
+	} else {
+		last++
+	}
+	return last, trxs, err
 }
 
-func transactionRowsToArray(rows pgx.Rows) (trxs []map[string]interface{}, err error) {
+func transactionRowsToArray(rows pgx.Rows) (last int, trxs []map[string]interface{}, err error) {
 	trxs = []map[string]interface{}{}
+	var (
+		sum       float64
+		operation int
+		date      int64
+		desc      string
+	)
 	for rows.Next() {
-		var (
-			sum       float64
-			operation int
-			date      int64
-			desc      string
-		)
-		err = rows.Scan(&sum, &operation, &date, &desc)
+		err = rows.Scan(&last, &sum, &operation, &date, &desc)
 		trx := map[string]interface{}{
+			"id":        last,
 			"sum":       sum,
 			"operation": operation,
 			"date":      time.Unix(date, 0),
 			"desc":      desc,
 		}
 		if err != nil {
-			return trxs, err
+			return 0, trxs, err
 		}
 		trxs = append(trxs, trx)
 	}
-	return trxs, err
+	return last, trxs, err
 }
