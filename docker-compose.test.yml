@@ -1,0 +1,30 @@
+version: '3.9'
+
+services:
+  app:
+    image: 'go-balance-server:latest'
+    build:
+      context: .
+      dockerfile: Dockerfile-test
+    container_name: go-balance-app
+    ports:
+        - 8080:8080
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=postgres://compose-postgres:compose-postgres@db:5432/compose-postgres
+      - PGX_TEST_DATABASE=postgres://compose-postgres:compose-postgres@db:5432/compose-postgres-test
+      - GIN_MODE=debug
+      - GO111MODULE=on
+    volumes:
+      - ./:/app
+          
+  db:
+    image: 'postgres:13.1-alpine'
+    container_name: go-balance-db
+    environment:
+      - POSTGRES_USER=compose-postgres
+      - POSTGRES_PASSWORD=compose-postgres
+    volumes:
+    - ./sql/:/docker-entrypoint-initdb.d/
+
