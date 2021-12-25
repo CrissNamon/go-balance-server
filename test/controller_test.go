@@ -53,7 +53,7 @@ func TestBalanceNotExistingUser(t *testing.T) {
 
 func TestBalanceWrongUser(t *testing.T) {
 	s := fmt.Sprintf(server.BAD_REQUEST_BINDING, server.STATUS_WRONG_ID)
-	exp := TestTable{server.STATUS_CODE_WRONG_REQUEST, s, 400}
+	exp := TestTable{server.ERROR_WRONG_REQUEST, s, 400}
 	res := TestTable{}
 	d := server.BalanceRequest{Id: -199, Cur: "RUB"}
 	makeRequest(t, "GET", server.URL_BALANCE, &d, &res)
@@ -91,7 +91,7 @@ func TestTransactionOutcomeNoMoney(t *testing.T) {
 }
 
 func TestTransactionZeroSum(t *testing.T) {
-	exp := TestTable{server.STATUS_CODE_WRONG_REQUEST, STATUS_ANY, 400}
+	exp := TestTable{server.ERROR_WRONG_REQUEST, STATUS_ANY, 400}
 	res := TestTable{}
 	d := server.TransactionRequest{Id: 1, Sum: 0, Desc: ""}
 	makeRequest(t, "POST", server.URL_TRANSACTION, &d, &res)
@@ -110,7 +110,7 @@ func TestTransferSuccess(t *testing.T) {
 
 func TestTransferEqualIds(t *testing.T) {
 	s := fmt.Sprintf(server.BAD_REQUEST_BINDING, server.STATUS_WRONG_IDS_NOT_UNIQUE)
-	exp := TestTable{server.STATUS_CODE_WRONG_REQUEST, s, 400}
+	exp := TestTable{server.ERROR_WRONG_REQUEST, s, 400}
 	res := TestTable{}
 	d := server.SendRequest{From: 2, Sum: 100, To: 2}
 	makeRequest(t, "POST", server.URL_TRANSFER, &d, &res)

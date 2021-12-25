@@ -12,9 +12,7 @@ const (
 	URL_TRANSACTIONS string = "/transactions"
 	URL_TRANSFER     string = "/transfer"
 
-	STATUS_CODE_OK             int = 0
-	STATUS_CODE_WRONG_REQUEST  int = 1
-	STATUS_CODE_INTERNAL_ERROR int = 3
+	STATUS_CODE_OK int = 0
 
 	STATUS_NOT_ENOUGHT_MONEY       string = "Not enought money"
 	STATUS_TRANSACTION_COMPLETED   string = "Transaction completed"

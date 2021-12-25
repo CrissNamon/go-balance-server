@@ -75,7 +75,7 @@ func (r *Result) Err(err *error, er ExpectedResultI) {
 		r.SetMessage(er.GetStatus(e.Code))
 		r.Response(er.GetHttpCode(e.Code))
 	default:
-		r.SetStatus(STATUS_CODE_INTERNAL_ERROR)
+		r.SetStatus(ERROR_INTERNAL)
 		r.SetMessage(STATUS_INTERNAL_ERROR)
 		r.Response(500)
 	}
@@ -86,7 +86,7 @@ func (r *Result) Response(code int) {
 }
 
 func (r *Result) BadRequest(msg string) {
-	r.SetStatus(STATUS_CODE_WRONG_REQUEST)
+	r.SetStatus(ERROR_WRONG_REQUEST)
 	r.SetMessage(fmt.Sprintf(BAD_REQUEST_BINDING, msg))
 	r.Response(400)
 }

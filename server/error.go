@@ -9,7 +9,8 @@ import (
 const (
 	BAD_REQUEST_BINDING string = "Wrong request data: %s"
 
-	ERROR_INTERNAL int = 900
+	ERROR_INTERNAL      int = 900
+	ERROR_WRONG_REQUEST int = 901
 )
 
 type OperationError struct {
