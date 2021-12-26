@@ -67,7 +67,6 @@ func TestGetBalanceWrongCurrencyCode(t *testing.T) {
 }
 
 func TestGetUserTransactionsWrongSort(t *testing.T) {
-	t.SkipNow()
 	rep := &MockAccountRepository{}
 	srv := server.NewAccountService(rep)
 	data := &server.TransactionsListData{Sort: "wrong"}
@@ -82,10 +81,9 @@ func TestGetUserTransactionsWrongSort(t *testing.T) {
 }
 
 func TestGetUserTransactionsWrongPage(t *testing.T) {
-	t.SkipNow()
 	rep := &MockAccountRepository{
 		getTransactionsSortedByDateFunc: func(trxData server.TransactionsListData) (pgx.Rows, error) {
-			return nil, nil
+			return testDb.Conn.Query(testDb.GetCtx(), "SELECT * FROM transactions WHERE account = 9999")
 		},
 	}
 	srv := server.NewAccountService(rep)
