@@ -44,10 +44,20 @@ docker-compose up --build
     - Необязательные
         - currency (Валюта для конвертации, код из 3 символов)
     - Пример запроса
-        > {"id": 1, "currency": "USD"}
+        ````json
+        {
+            "id": 1, 
+            "currency": "USD"
+        }
+        ````
         
     - Пример ответа
-        > {"status":0,"data":1060}
+        ````json
+        {
+            "status": 0,
+            "data": 1060
+        }
+        ````
 * POST /transaction (Списание/Зачисление средств)
     - Обязательные
         - id (ID пользователя для списания/зачисления)
@@ -55,20 +65,42 @@ docker-compose up --build
     - Необязательные
         - desc (Описание платежа, текст)
     - Пример запроса
-        > {"id": 1, "sum": 51.7, "desc": "Random income"}
+        ````json
+        {
+            "id": 1, 
+            "sum": 51.7, 
+            "desc": "Random income"
+        }
+        ````
         
     - Пример ответа
-        > {"status":0,"data":"Transaction completed"}
+        ````json
+        {
+            "status": 0,
+            "data": "Transaction completed"
+        }
+        ````
 * POST /transfer (Перевод средств между пользователями)
     - Обязательные
         - id (ID пользователя для списания)
         - to (ID пользователя для зачисления)
         - sum (Сумма платежа, вещественное положительное число)
     - Пример запроса
-        > {"id": 1, "sum": 27.43, "to": 2}
+        ````json
+        {
+            "id": 1, 
+            "sum": 27.43, 
+            "to": 2
+        }
+        ````
         
     - Пример ответа
-        > {"status":0,"data":"Transfer completed"}
+        ````json
+        {
+            "status": 0,
+            "data": "Transfer completed"
+        }
+        ````
 * GET /transactions (История транзакций)
     - Обязательные
         - id (ID пользователя)
@@ -88,10 +120,39 @@ docker-compose up --build
             - Выводит транзакции, произведенные до указанной даты
             - По умолчанию - текущая дата
     - Пример запроса
-        > {"id": 1, "sort": "sum", "from": 0, "start": 1637602965, "end": 1669138965}
+        ````json
+        {
+            "id": 1, 
+            "sort": "sum", 
+            "from": 0, 
+            "start": 1637602965, 
+            "end": 1669138965
+        }
+        ````
         
     - Пример овтета
-        > {"status":0,"data":{"next":6,"transactions":[{"date":"2021-12-24T19:17:30Z","desc":"Random income","operation":0,"sum":14.53},{"date":"2021-12-24T19:21:20Z","desc":"Random income","operation":1,"sum":-0.83}]}}
+        ````json
+        {
+            "status": 0,
+            "data": {
+                "next": 6,
+                "transactions": [
+                    {
+                        "date": "2021-12-24T19:17:30Z",
+                        "desc":"Random income",
+                        "operation": 0,
+                        "sum": 14.53
+                    },
+                    {
+                        "date": "2021-12-24T19:21:20Z",
+                        "desc": "Random income",
+                        "operation": 1,
+                        "sum": -0.83
+                     }
+                 ]
+             }
+         }
+        ````
         
 
 ### Решенные проблемы
