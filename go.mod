@@ -1,4 +1,4 @@
-module balance-server
+module github.com/CrissNamon/balance-server
 
 go 1.17
 
